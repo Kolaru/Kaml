@@ -18,6 +18,7 @@ from utils import callback, connect, locking, logger
 tokens = load_tokens()
 ROLENAME = "Chamelier"
 
+
 # TODO add methods that should use the ones in the ranking
 class Kamlbot(Bot):
     def __init__(self, *args, **kwargs):
@@ -26,6 +27,8 @@ class Kamlbot(Bot):
 
         self.player_manager = None
         self.ranking = None
+        self.is_ready = False
+        self.maintenance_mode = False
 
         super().__init__(*args, **kwargs)
 
@@ -40,6 +43,9 @@ class Kamlbot(Bot):
     
     def get_player(self, *args, **kwargs):
         return self.player_manager.get_player(*args, **kwargs)
+    
+    async def info(self, msg):
+        await self.info_chan.send(msg)
     
     def leaderboard_content(self, start, stop):
         # Convert from base 1 indexing for positive ranks
@@ -58,14 +64,14 @@ class Kamlbot(Bot):
 
     async def on_message(self, msg):
         if msg.channel == self.matchboard:
-            game = parse_matchboard_msg(msg)
-            if game is not None:
-                await self.ranking.register_game(game)
+            if self.is_ready:
+                game = parse_matchboard_msg(msg)
+                if game is not None:
+                    await self.ranking.register_game(game)
 
         elif msg.guild.id == tokens["kaml_server_id"]:
             await self.process_commands(msg)
 
-    @locking("kamlbot")
     async def on_ready(self):
         if self.player_manager is not None:
             print("Too much on_ready")
@@ -80,6 +86,9 @@ class Kamlbot(Bot):
             
             if chan.name == "leaderboard":
                 self.leaderboard = chan
+            
+            if chan.name == "general":
+                self.info_chan = chan
         
         for chan in self.get_guild(tokens["pw_server_id"]).channels:
             if chan.name == "matchboard":
@@ -104,6 +113,8 @@ class Kamlbot(Bot):
 
         logger.info(f"Initialization finished in {dt:0.2f} s.")
         await self.debug(f"Initialization finished in {dt:0.2f} s.")
+        self.is_ready = True
+        await self.info("The Kamlbot is ready to rock and ready to rank!")
 
     def player_rank(self, player):
         return self.ranking.player_to_rank.get(player, "[unkown]")
@@ -140,7 +151,15 @@ kamlbot = Kamlbot(command_prefix="!")
 # TODO implement admin reload command
 # TODO give "Number one" rank to the top player
 
-JET_ALIASES = ["\#LegalizeEdgyMemes", "JetEriksen"]
+JET_ALIASES = ["\#LegalizeEdgyMemes", "JetEriksen", "KSR JetEriksen"]
+
+@kamlbot.check
+async def check_available(cmd):
+    if kamlbot.is_ready:
+        return True
+    else:
+        await cmd.channel.send("Kamlbot not ready, please wait a bit.")
+        return False
 
 @kamlbot.command(help="""
 Associate in game name(s) to the user's discord profile.
@@ -256,7 +275,7 @@ async def compare(cmd, p1_name, p2_name):
         msg += "\n" + kamlbot.message("win_probability_blind",
                                       p1=p1,
                                       p2=p2,
-                                      win_estimate=p1.win_estimate(p2))
+                                      win_estimate=100*p1.win_estimate(p2))
     
     await cmd.channel.send(msg)
 
@@ -295,7 +314,7 @@ async def rank(cmd, player_name=None):
 async def stop(cmd):
     print("Disconnecting Kamlbot")
     await kamlbot.change_presence(activity=None, status=discord.Status.offline)
-    await kamlbot.debug("The Kamlbot takes his leave.")
+    await kamlbot.info("The Kamlbot takes his leave.")
     logger.info("Disconnecting Kamlbot.")
     await kamlbot.close()
 
