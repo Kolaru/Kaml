@@ -58,6 +58,17 @@ class Kamlbot(Bot):
                                  for player in self.ranking[start:stop]])
 
         return f"```\n{new_content}\n```"
+    
+    async def load_all(self):
+        self.messages = load_messages()
+
+        self.player_manager = PlayerManager()
+        await self.player_manager.load_data()
+        await self.update_mentions()
+
+        self.ranking = Ranking(self.player_manager)
+
+        await self.ranking.fetch_data(self.matchboard)
 
     def message(self, msg_name, **kwargs):
         return self.messages[msg_name].format(**kwargs)
@@ -101,15 +112,7 @@ class Kamlbot(Bot):
         logger.info(f"Kamlbot has logged in.")
         start_time = time.time()
 
-        self.messages = load_messages()
-
-        self.player_manager = PlayerManager()
-        await self.player_manager.load_data()
-        await self.update_mentions()
-
-        self.ranking = Ranking(self.player_manager)
-
-        await self.ranking.fetch_data(self.matchboard)
+        await self.load_all()
 
         dt = time.time() - start_time
 
@@ -153,11 +156,11 @@ kamlbot = Kamlbot(command_prefix="!")
 # TODO implement admin reload command
 # TODO give "Number one" rank to the top player
 
-JET_ALIASES = ["\#LegalizeEdgyMemes", "JetEriksen", "KSR JetEriksen"]
+JET_ALIASES = ["#LegalizeEdgyMemes", "JetEriksen", "KSR JetEriksen"]
 
 @kamlbot.check
 async def check_available(cmd):
-    if kamlbot.is_ready:
+    if kamlbot.is_ready and not kamlbot.maintenance_mode:
         return True
     else:
         await cmd.channel.send("Kamlbot not ready, please wait a bit.")
@@ -333,6 +336,16 @@ async def rank(cmd, player_name=None):
                           rank=kamlbot.player_rank(player))
     await cmd.channel.send(msg)
 
+@kamlbot.command()
+@commands.has_role(ROLENAME)
+async def reload(cmd):
+    async with cmd.typing():
+        t = time.time()
+        kamlbot.maintenance_mode = True
+        await kamlbot.load_all()
+        kamlbot.maintenance_mode = False
+        dt = time.time() - t
+        await cmd.channel.send(f"Everything was reloaded (took {dt:.2f} s).")
 
 @kamlbot.command(help="""
 [Admin] Stop the bot.
