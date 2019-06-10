@@ -63,11 +63,13 @@ class Kamlbot(Bot):
         return self.messages[msg_name].format(**kwargs)
 
     async def on_message(self, msg):
+        if not self.is_ready:
+            return
+
         if msg.channel == self.matchboard:
-            if self.is_ready:
-                game = parse_matchboard_msg(msg)
-                if game is not None:
-                    await self.ranking.register_game(game)
+            game = parse_matchboard_msg(msg)
+            if game is not None:
+                await self.ranking.register_game(game)
 
         elif msg.guild.id == tokens["kaml_server_id"]:
             await self.process_commands(msg)
@@ -114,7 +116,7 @@ class Kamlbot(Bot):
         logger.info(f"Initialization finished in {dt:0.2f} s.")
         await self.debug(f"Initialization finished in {dt:0.2f} s.")
         self.is_ready = True
-        await self.info("The Kamlbot is ready to rock and ready to rank!")
+        # await self.info("The Kamlbot is ready to rock and ready to rank!")
 
     def player_rank(self, player):
         return self.ranking.player_to_rank.get(player, "[unkown]")
@@ -228,6 +230,31 @@ async def leaderboard(cmd, start, stop):
 
     await cmd.channel.send(kamlbot.leaderboard_content(start, stop))
 
+
+@commands.has_role(ROLENAME)
+@kamlbot.command()
+async def lsq_leaderboard(cmd):
+    ranking = kamlbot.ranking.lsq_ranking()
+
+    content = "\n".join([("{rank:<4} {score:<7.5} ± {sigma} {player.mention:<20}").format(
+                                      rank=k + 1,
+                                      player=v[0],
+                                      score=v[1],
+                                      sigma=v[2])
+                         for k, v in enumerate(ranking[0:30])])
+
+    msg =  f"```\n{content}\n```"
+    await cmd.channel.send(msg)
+
+    content = "\n".join([("{rank:<4} {score:<7.5} ± {sigma:<7.3} {player.mention:<20}").format(
+                                      rank=k + 1,
+                                      player=v[0],
+                                      score=v[1],
+                                      sigma=v[2])
+                         for k, v in enumerate(ranking[-30:])])
+
+    msg =  f"```\n{content}\n```"
+    await cmd.channel.send(msg)
 
 @kamlbot.command(help="""
 Compare two players, including the probability of win estimated by the Kamlbot.

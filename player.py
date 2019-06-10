@@ -21,7 +21,7 @@ def sigmoid(x):
 
 class Player:
     mu = 1000
-    logsigma = 5.7
+    logsigma = 6
     _id_counter = 0
     wins = 0
     losses = 0
@@ -67,6 +67,10 @@ class Player:
     @property
     def sigma(self):
         return int(sqrt(self.variance))
+    
+    @property
+    def total_games(self):
+        return self.wins + self.losses
 
     @property
     def variance(self):
@@ -74,6 +78,10 @@ class Player:
 
     def win_estimate(self, other):
         return 1 - Gaussian.cdf(-self.diff_estimate(other)/self.combined_sigma(other))
+    
+    @property
+    def win_ratio(self):
+        return self.wins/self.total_games
 
 
 class TestPlayer(Player):
