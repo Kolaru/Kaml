@@ -1,4 +1,5 @@
 import time
+import trueskill
 
 from itertools import chain
 from math import log, exp, sqrt
@@ -10,9 +11,6 @@ from save_and_load import load_alias_tables, parse_mention_to_id, save_aliases
 from utils import locking, logger
 from utils import ChainedDict
 
-ALPHA = 0.1
-BETA = Gaussian.ppf((1 + ALPHA)/2)
-
 WIN = True
 LOSS = False
 
@@ -20,8 +18,6 @@ def sigmoid(x):
     return 1/(1 + exp(-x))
 
 class Player:
-    mu = 1000
-    logsigma = 6
     _id_counter = 0
     wins = 0
     losses = 0
@@ -38,6 +34,8 @@ class Player:
             self.aliases = set(aliases)
             self.id = player_id
             self.claimed = True
+        
+        self.rating = trueskill.Rating()
     
     def __hash__(self):
         return self.id
@@ -45,28 +43,17 @@ class Player:
     def __str__(self):
         return f"Player {self.mention} (mu = {self.mu}, sigma = {self.sigma})"
 
-    def combined_sigma(self, other):
-        return sqrt(self.variance + other.variance)
-
-    def diff_estimate(self, other):
-        return self.mu - other.mu
-
-    def diff_error(self, other):
-        return BETA * self.combined_sigma(other)
-
-    def relerr(self, other):
-        mag = self.diff_estimate(other)
-        if mag == 0:
-            return 10.0**10.0
-        return abs(self.diff_error(other)/mag)
+    @property
+    def mu(self):
+        return self.rating.mu
 
     @property
     def score(self):
-        return self.mu - self.sigma
+        return self.mu - 3*self.sigma
 
     @property
     def sigma(self):
-        return int(sqrt(self.variance))
+        return self.rating.sigma
     
     @property
     def total_games(self):
@@ -74,10 +61,7 @@ class Player:
 
     @property
     def variance(self):
-        return exp(2*self.logsigma)
-
-    def win_estimate(self, other):
-        return 1 - Gaussian.cdf(-self.diff_estimate(other)/self.combined_sigma(other))
+        return self.sigma**2
     
     @property
     def win_ratio(self):

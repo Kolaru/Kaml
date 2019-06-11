@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import trueskill
 
 from collections import namedtuple
 from numpy import exp, log, sqrt
@@ -12,39 +13,7 @@ from utils import emit_signal, locking, logger
 MU_SHIFT = 60
 SIGMA_SCALE = 0.02
 
-
-class ScoreChange:
-    def __init__(self, winner, loser):
-        self.winner = winner
-        self.loser = loser
-
-        self.prior_estimate = winner.win_estimate(loser)
-        self.prior_mu = dict(winner=winner.mu, loser=loser.mu)
-        self.prior_logsigma = dict(winner=winner.logsigma, loser=loser.logsigma)
-
-        self.relerr = winner.relerr(loser)
-        self.dmu = int((1 - self.prior_estimate) * MU_SHIFT)
-
-        if self.prior_estimate > 0.5:
-            scaling = - (1 - self.prior_estimate)
-        else:
-            scaling = self.prior_estimate
-        
-        self.dlogsigma = scaling * SIGMA_SCALE #/self.relerr
-        self.winner_dsigma = int( exp(self.prior_logsigma["winner"] + self.dlogsigma)
-                                  - exp(self.prior_logsigma["winner"]) )
-        self.loser_dsigma = int( exp(self.prior_logsigma["loser"] + self.dlogsigma) 
-                                 - exp(self.prior_logsigma["loser"]) )
-    
-    def apply_change(self, winner, loser):
-        winner.mu += self.dmu
-        winner.logsigma += self.dlogsigma
-        winner.wins += 1
-
-        loser.mu -= self.dmu
-        loser.logsigma += self.dlogsigma
-        loser.losses += 1
-
+BETA = 25/6
 
 Comparison = namedtuple("Comparison", ["wins",
                                        "losses",
@@ -52,12 +21,20 @@ Comparison = namedtuple("Comparison", ["wins",
                                        "total",
                                        "win_empirical"])
 
+ScoreChange = namedtuple("ScoreChange", ["winner",
+                                         "loser",
+                                         "winner_dscore",
+                                         "loser_dscore"])
+
+
 class Ranking:
     def __init__(self, player_manager):
         self.player_manager = player_manager
         self.ranked_players = []
         self.player_to_rank = {}
         self.wins = {}
+        self.ts_env = trueskill.TrueSkill(draw_probability=0.0)
+        self.ts_env.make_as_global()
 
     def __getitem__(self, rank):
         return self.ranked_players[rank]
@@ -72,7 +49,7 @@ class Ranking:
                           losses=losses,
                           total=wins + losses,
                           win_empirical=100*wins/(wins + losses),
-                          win_estimate=100*p1.win_estimate(p2))
+                          win_estimate=100*self.win_estimate(p1, p2))
 
     async def fetch_data(self, matchboard):
         logger.info("Building Ranking")
@@ -104,8 +81,17 @@ class Ranking:
         else:
             self.wins[(winner, loser)] += 1
 
-        change = ScoreChange(winner, loser)
-        change.apply_change(winner, loser)
+        winner_old_score = winner.score
+        loser_old_score = loser.score
+
+        winner.rating, loser.rating = trueskill.rate_1vs1(winner.rating, loser.rating)
+        winner.wins += 1
+        loser.losses += 1
+
+        change = ScoreChange(winner=winner,
+                             loser=loser,
+                             winner_dscore=winner.score - winner_old_score,
+                             loser_dscore=loser.score - loser_old_score)
 
         if save:
             await save_single_game(game)
@@ -168,6 +154,12 @@ class Ranking:
             lsq_ranking.append((p, x - y, y))
         
         return sorted(lsq_ranking, key=lambda v: -v[1])
+    
+    def win_estimate(self, p1, p2):
+        delta_mu = p1.mu - p2.mu
+        sum_sigma2 = p1.sigma**2 + p2.sigma**2
+        denom = sqrt(2 * BETA**2 + sum_sigma2)
+        return self.ts_env.cdf(delta_mu / denom)
 
 
 

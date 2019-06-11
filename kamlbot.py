@@ -55,7 +55,7 @@ class Kamlbot(Bot):
         new_content = "\n".join([self.message("leaderboard_line",
                                               rank=self.player_rank(player),
                                               player=player)
-                                 for player in self.ranking[start:stop]])
+                                 for player in kamlbot.ranking[start:stop]])
 
         return f"```\n{new_content}\n```"
     
@@ -305,7 +305,7 @@ async def compare(cmd, p1_name, p2_name):
         msg += "\n" + kamlbot.message("win_probability_blind",
                                       p1=p1,
                                       p2=p2,
-                                      win_estimate=100*p1.win_estimate(p2))
+                                      win_estimate=100*kamlbot.ranking.win_estimate(p1, p2))
     
     await cmd.channel.send(msg)
 
