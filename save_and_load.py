@@ -167,6 +167,10 @@ def load_messages():
         messages = json.load(file)
     return messages
 
+def load_ranking_config(config_name):
+    with open("ranking_config.json", "r", encoding="utf-8") as file:
+        configs = json.load(file)
+    return configs[config_name]
 
 def load_tokens():
     with open("tokens.json", "r", encoding="utf-8") as file:

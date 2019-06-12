@@ -11,7 +11,7 @@ from itertools import chain
 
 from player import PlayerManager, PlayerNotFoundError
 from ranking import Ranking
-from save_and_load import load_messages, load_tokens, parse_matchboard_msg
+from save_and_load import load_messages, load_ranking_config, load_tokens, parse_matchboard_msg
 from utils import callback, connect, locking, logger
 
 
@@ -47,15 +47,20 @@ class Kamlbot(Bot):
     async def info(self, msg):
         await self.info_chan.send(msg)
     
-    def leaderboard_content(self, start, stop):
+    def leaderboard_content(self, start, stop, experimental=False):
         # Convert from base 1 indexing for positive ranks
         if start >= 0:
             start -= 1
 
+        if experimental:
+            ranking = self.experimental_ranking
+        else:
+            ranking = self.ranking
+
         new_content = "\n".join([self.message("leaderboard_line",
-                                              rank=self.player_rank(player),
+                                              rank=ranking.player_rank(player),
                                               player=player)
-                                 for player in kamlbot.ranking[start:stop]])
+                                 for player in ranking[start:stop]])
 
         return f"```\n{new_content}\n```"
     
@@ -66,7 +71,9 @@ class Kamlbot(Bot):
         await self.player_manager.load_data()
         await self.update_mentions()
 
-        self.ranking = Ranking(self.player_manager)
+        ranking_config = load_ranking_config("base")
+        self.ranking = Ranking(self.player_manager,
+                               **ranking_config)
 
         await self.ranking.fetch_data(self.matchboard)
 
@@ -121,9 +128,6 @@ class Kamlbot(Bot):
         self.is_ready = True
         # await self.info("The Kamlbot is ready to rock and ready to rank!")
 
-    def player_rank(self, player):
-        return self.ranking.player_to_rank.get(player, "[unkown]")
-
     @property
     def players(self):
         return self.player_manager.players
@@ -143,11 +147,14 @@ class Kamlbot(Bot):
         await self.kamlboard.send(embed=embed)
 
     @locking("mentions")
-    async def update_mentions(self):
-        for player in self.player_manager.claimed_players:
+    async def update_mentions(self, player_manager=None):
+        if player_manager is None:
+            player_manager = self.player_manager
+
+        for player in player_manager.claimed_players:
             user = await self.fetch_user(player.id)
             player.mention = user.display_name
-            self.player_manager.alias_to_id[player.mention] = player.id
+            player_manager.alias_to_id[player.mention] = player.id
             
 
 kamlbot = Kamlbot(command_prefix="!")
@@ -214,6 +221,43 @@ async def alias(cmd, *names):
                                aliases="\n".join(not_found))
 
     await cmd.channel.send(msg)
+
+
+@kamlbot.command()
+@commands.has_role(ROLENAME)
+async def exp_ranking(cmd, mu, sigma, beta, tau):
+    t = time.time()
+    async with cmd.typing():
+        player_manager = PlayerManager()
+        await player_manager.load_data()
+        await kamlbot.update_mentions(player_manager=player_manager)
+        kamlbot.experimental_ranking = Ranking(player_manager,
+                                               mu=float(mu),
+                                               sigma=float(sigma),
+                                               beta=float(beta),
+                                               tau=float(tau))
+
+        await kamlbot.experimental_ranking.fetch_data(kamlbot.matchboard)
+
+        dt = time.time() - t
+
+        await cmd.channel.send(f"Experimental ranking initialized in {dt:.2f} s.")
+
+
+@kamlbot.command()
+async def exp_leaderboard(cmd, start, stop):
+    try:
+        start = int(start)
+        stop = int(stop)
+    except ValueError:
+        await cmd.channel.send("Upper and lower rank should be integers.")
+        return
+    
+    if stop - start > 30:
+        await cmd.channel.send("At most 30 line can be displayed at once in leaderboards.")
+        return
+
+    await cmd.channel.send(kamlbot.leaderboard_content(start, stop, experimental=True))
 
 
 @kamlbot.command(help="""
@@ -291,7 +335,7 @@ async def compare(cmd, p1_name, p2_name):
 
     msg += "\n" + kamlbot.message("player_rank",
                                   player=p2,
-                                  rank=kamlbot.player_rank(p2))
+                                  rank=kamlbot.ranking.player_rank(p2))
     
     
     comparison = kamlbot.ranking.comparison(p1, p2)
@@ -333,7 +377,7 @@ async def rank(cmd, player_name=None):
 
     msg = kamlbot.message("player_rank",
                           player=player,
-                          rank=kamlbot.player_rank(player))
+                          rank=kamlbot.ranking.player_rank(player))
     await cmd.channel.send(msg)
 
 @kamlbot.command()

@@ -28,16 +28,18 @@ ScoreChange = namedtuple("ScoreChange", ["winner",
 
 
 class Ranking:
-    def __init__(self, player_manager):
+    def __init__(self, player_manager,
+                 mu=25, sigma=25/3, beta=25/6, tau=25/300):
         self.player_manager = player_manager
         self.ranked_players = []
         self.player_to_rank = {}
         self.wins = {}
         self.ts_env = trueskill.TrueSkill(
             draw_probability=0.0,
-            mu=25,
-            sigma=25/3,
-            beta=25/6)
+            mu=mu,
+            sigma=sigma,
+            beta=beta,
+            tau=tau)
         self.ts_env.make_as_global()
 
     def __getitem__(self, rank):
@@ -75,6 +77,9 @@ class Ranking:
     @property
     def players(self):
         return self.player_manager.players
+    
+    def player_rank(self, player):
+        return self.player_to_rank.get(player, "[unkown]")
 
     async def register_game(self, game, save=True, update_ranking=True):
         winner = self.get_player(game["winner"])

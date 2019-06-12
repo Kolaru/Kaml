@@ -34,6 +34,7 @@ class Player:
             self.aliases = set(aliases)
             self.id = player_id
             self.claimed = True
+            self.mention = list(aliases)[0]
         
         self.rating = trueskill.Rating()
     
