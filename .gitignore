@@ -5,3 +5,5 @@
 
 *.json
 *.csv
+
+!messages.json

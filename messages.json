@@ -1,0 +1,19 @@
+{
+    "game_result_title": ":medal: Ranked battle has ended",
+    "game_result_description": ":crown: **{winner.mention}** {winner.score:.2f} (+{change.winner_dscore:.2f}) vs **{loser.mention}** {loser.score:.2f} ({change.loser_dscore:.2f})",
+
+    "no_alias_error": ":negative_squared_cross_mark: {user.mention} no in game names are associated to your discord profile.",
+    "player_not_found_error": ":negative_squared_cross_mark: No player named **{player_name}** was found.",
+
+    "player_rank": ":ledger: **{player.mention}** is currently ranked **{rank}** and has **{player.score:.2f}** kamlpoints (± {player.sigma:.2f}) with {player.wins} wins and {player.losses} losses.",
+    "win_probability":":desktop: According to my estimation **{p1.mention}** has **{comparison.win_estimate:0.2f}%** chance of winning against **{p2.mention}**.\n My records says that **{p1.mention}** has actually won **{comparison.wins}** out of their **{comparison.total}** games (**{comparison.win_empirical:0.2f}%** of win).",
+    "win_probability_blind":":desktop: No game were recorded between these two players. Nonetheless, my estimation says that **{p1.mention}** has **{win_estimate:0.2f}%** chance of winning against **{p2.mention}**.",
+
+    "anti_jet_meme": "It looks like you are trying to claim somebody else name, Jet. If it's legit please contact Kolaru, otherwise: Nice try normie!",
+    "taken_alias": "**{alias}** by {player.mention}",
+    "not_associated_aliases": "{n} aliases not associated because already claimed:\n{taken_aliases}",
+    "associated_aliases": "{user.mention} your profile is associated to the following in game name(s):\n```\n{aliases}\n```",
+    "not_found_aliases": "\nThe following requested name(s) had not previously appeared in the matchboard (they got associated to your profile anyway):\n```\n{aliases}\n```",
+
+    "leaderboard_line": "{rank:<4} {player.score:<7.2f} ± {player.sigma:<5.2f} {player.mention:<20} {player.wins:<5}/{player.losses:<5}"
+}
