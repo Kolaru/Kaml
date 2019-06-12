@@ -3,7 +3,5 @@
 /__pycache__
 /build
 
-*.json
+tokens.json
 *.csv
-
-!messages.json
