@@ -33,7 +33,11 @@ class Ranking:
         self.ranked_players = []
         self.player_to_rank = {}
         self.wins = {}
-        self.ts_env = trueskill.TrueSkill(draw_probability=0.0)
+        self.ts_env = trueskill.TrueSkill(
+            draw_probability=0.0,
+            mu=25,
+            sigma=25/3,
+            beta=25/6)
         self.ts_env.make_as_global()
 
     def __getitem__(self, rank):
@@ -103,7 +107,8 @@ class Ranking:
         return change
     
     async def update_ranking(self):
-        self.ranked_players = sorted(self.players, key=lambda p: -p.score)
+        filtered_players = [p for p in self.players if p.total_games > 30]
+        self.ranked_players = sorted(filtered_players, key=lambda p: -p.score)
         self.player_to_rank = {p:(k+1) for k, p in enumerate(self.ranked_players)}
 
         await emit_signal("ranking_updated")
