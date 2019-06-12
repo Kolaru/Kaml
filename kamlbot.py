@@ -185,7 +185,15 @@ async def alias(cmd, *names):
         return
     
     if len(names) == 0:
-        await cmd.channel.send("Please give me at least one alias...")
+        player = kamlbot.get_player(user.id)
+        if len(player.aliases) > 0:
+            msg = kamlbot.message("associated_aliases",
+                                user=user,
+                                aliases="\n".join(player.aliases))
+        else:
+            msg = kamlbot.message("no_alias_error", user=user)
+        
+        await cmd.channel.send(msg)
         return
     
     taken = kamlbot.player_manager.extract_claims(names)
@@ -201,7 +209,7 @@ async def alias(cmd, *names):
         await cmd.channel.send(msg)
         return
 
-    added, not_found = await kamlbot.player_manager.associate_aliases(user.id, names)
+    added, not_found = kamlbot.player_manager.associate_aliases(user.id, names)
     player = kamlbot.get_player(user.id)
     await kamlbot.update_mentions()
 

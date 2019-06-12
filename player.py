@@ -155,8 +155,7 @@ class PlayerManager:
 
         return player
 
-    @locking("player_manager") 
-    async def associate_aliases(self, player_id, aliases):
+    def associate_aliases(self, player_id, aliases):
         # Assume that none of the aliases is already taken
         # Assume len(aliases) > 0
 
@@ -177,7 +176,7 @@ class PlayerManager:
         for alias in aliases:
             self.alias_to_id[alias] = player_id
             
-        await save_aliases(self.id_to_claimed_aliases)
+        save_aliases(self.id_to_claimed_aliases)
 
         return found, not_found
 
