@@ -1,6 +1,7 @@
 /log
 /.vscode
 /__pycache__
+/build
 
 *.json
 *.csv
