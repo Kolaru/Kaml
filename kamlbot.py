@@ -159,10 +159,6 @@ class Kamlbot(Bot):
 
 kamlbot = Kamlbot(command_prefix="!")
 
-# TODO score change is displayed incorrectly only take in account diff for mu
-# TODO implement admin reload command
-# TODO give "Number one" rank to the top player
-
 JET_ALIASES = ["#LegalizeEdgyMemes", "JetEriksen", "KSR JetEriksen"]
 
 @kamlbot.check
@@ -278,31 +274,6 @@ async def leaderboard(cmd, start, stop):
     await cmd.channel.send(kamlbot.leaderboard_content(start, stop))
 
 
-@commands.has_role(ROLENAME)
-@kamlbot.command()
-async def lsq_leaderboard(cmd):
-    ranking = kamlbot.ranking.lsq_ranking()
-
-    content = "\n".join([("{rank:<4} {score:<7.5} ± {sigma} {player.mention:<20}").format(
-                                      rank=k + 1,
-                                      player=v[0],
-                                      score=v[1],
-                                      sigma=v[2])
-                         for k, v in enumerate(ranking[0:30])])
-
-    msg =  f"```\n{content}\n```"
-    await cmd.channel.send(msg)
-
-    content = "\n".join([("{rank:<4} {score:<7.5} ± {sigma:<7.3} {player.mention:<20}").format(
-                                      rank=k + 1,
-                                      player=v[0],
-                                      score=v[1],
-                                      sigma=v[2])
-                         for k, v in enumerate(ranking[-30:])])
-
-    msg =  f"```\n{content}\n```"
-    await cmd.channel.send(msg)
-
 @kamlbot.command(help="""
 Compare two players, including the probability of win estimated by the Kamlbot.
 """)
@@ -331,7 +302,7 @@ async def compare(cmd, p1_name, p2_name):
 
     msg = kamlbot.message("player_rank",
                           player=p1,
-                          rank=kamlbot.player_rank(p1))
+                          rank=kamlbot.ranking.player_rank(p1))
 
     msg += "\n" + kamlbot.message("player_rank",
                                   player=p2,
