@@ -11,10 +11,14 @@ from utils import emit_signal, locking, logger
 
 WIN_PATTERN = re.compile(r":crown: \*\*(.+)\*\* \(.+\) vs \*\*(.+)\*\* \(.+\)")
 LOSS_PATTERN = re.compile(r"\*\*(.+)\*\* \(.+\) vs :crown: \*\*(.+)\*\* \(.+\)")
+HALF_WIN_PATTERN = re.compile(r":crown: \*\*(.+)\*\* \(.+\) has won a match!")
+HALF_LOSS_PATTERN = re.compile(r"\*\*(.+)\*\* \(.+\) has lost a match.")
 MENTION_PATTERN = re.compile(r"<@(.+)>")
 
 
 def clean_name(s):
+    if s is None:
+        return None
     return s.strip().replace(",", "_").replace("\n", " ")
 
 
@@ -29,6 +33,7 @@ def parse_matchboard_msg(msg):
         return None
 
     logger.debug(msg.embeds[0].to_dict())
+    winner, loser = None, None
 
     result = msg.embeds[0].description
     m = re.match(WIN_PATTERN, result)
@@ -38,8 +43,16 @@ def parse_matchboard_msg(msg):
         m = re.match(LOSS_PATTERN, result)
         if m is not None:
             winner, loser = m.group(2, 1)
-        else:
-            return None
+    
+    if winner is None:
+        m = re.match(HALF_WIN_PATTERN, result)
+        if m is not None:
+            winner = m.group(1)
+    
+    if loser is None:
+        m = re.match(HALF_LOSS_PATTERN, result)
+        if m is not None:
+            loser = m.group(1)
 
     # Strip comma from game names to avoid messing the csv
     winner = clean_name(winner)
