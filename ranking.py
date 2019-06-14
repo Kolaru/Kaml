@@ -82,6 +82,12 @@ class Ranking:
         return self.player_to_rank.get(player, "[unkown]")
 
     async def register_game(self, game, save=True, update_ranking=True):
+        if game["winner"] == "":
+            game["winner"] = None
+        
+        if game["loser"] == "":
+            game["loser"] = None
+            
         if game["winner"] is None or game["loser"] is None:
             return None
             
