@@ -3,6 +3,8 @@ import time
 
 from datetime import datetime
 
+from difflib import get_close_matches
+
 from discord import Embed, Message, TextChannel
 from discord.ext import commands
 from discord.ext.commands import Bot
@@ -227,7 +229,9 @@ async def alias(cmd, *names):
     await cmd.channel.send(msg)
 
 
-@kamlbot.command()
+@kamlbot.command(help="""
+Create an experimental ranking with custom TS values.
+""")
 @commands.has_role(ROLENAME)
 async def exp_ranking(cmd, mu, sigma, beta, tau):
     t = time.time()
@@ -236,10 +240,10 @@ async def exp_ranking(cmd, mu, sigma, beta, tau):
         await player_manager.load_data()
         await kamlbot.update_mentions(player_manager=player_manager)
         kamlbot.experimental_ranking = Ranking(player_manager,
-                                               mu=float(mu),
-                                               sigma=float(sigma),
-                                               beta=float(beta),
-                                               tau=float(tau))
+                                               mu=eval(mu),
+                                               sigma=eval(sigma),
+                                               beta=eval(beta),
+                                               tau=eval(tau))
 
         await kamlbot.experimental_ranking.fetch_data(kamlbot.matchboard)
 
@@ -369,6 +373,18 @@ async def reload(cmd):
         kamlbot.maintenance_mode = False
         dt = time.time() - t
         await cmd.channel.send(f"Everything was reloaded (took {dt:.2f} s).")
+
+
+@kamlbot.command(help="""
+Search for a player. Optional argument `n` is the maximal number of name returned.
+""")
+async def search(cmd, name, n=5):
+    matches = get_close_matches(name, kamlbot.player_manager.aliases,
+                                n=n)
+    
+    msg = "\n".join(matches)
+    await cmd.channel.send(f"```\n{msg}\n```")
+
 
 @kamlbot.command(help="""
 [Admin] Stop the bot.
