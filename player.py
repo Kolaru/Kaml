@@ -1,6 +1,8 @@
+import numpy as np
 import time
 import trueskill
 
+from collections import namedtuple, OrderedDict
 from itertools import chain
 from math import log, exp, sqrt
 from random import randint, sample
@@ -11,16 +13,15 @@ from save_and_load import load_alias_tables, parse_mention_to_id, save_aliases
 from utils import locking, logger
 from utils import ChainedDict
 
-WIN = True
-LOSS = False
 
-def sigmoid(x):
-    return 1/(1 + exp(-x))
+PlayerState = namedtuple("PlayerState", ["rank", "mu", "sigma", "score"])
+
 
 class Player:
     _id_counter = 0
     wins = 0
     losses = 0
+    rank = None
 
     # TODO Better safeguard for invalid arg combinations
     def __init__(self, player_id=None, aliases=None, name=None):
@@ -37,6 +38,7 @@ class Player:
             self.mention = list(aliases)[0]
         
         self.rating = trueskill.Rating()
+        self.states = OrderedDict()
     
     def __hash__(self):
         return self.id
@@ -47,14 +49,26 @@ class Player:
     @property
     def mu(self):
         return self.rating.mu
+    
+    @property
+    def ranks(self):
+        return np.array([s.rank for s in self.states.values()] + [self.rank])
 
     @property
     def score(self):
         return self.mu - 3*self.sigma
-
+    
+    @property
+    def scores(self):
+        return np.array([s.score for s in self.states.values()] + [self.score])
+    
     @property
     def sigma(self):
         return self.rating.sigma
+
+    @property
+    def times(self):
+        return np.array(list(self.states.keys()) + [time.time()])
     
     @property
     def total_games(self):
@@ -67,6 +81,12 @@ class Player:
     @property
     def win_ratio(self):
         return self.wins/self.total_games
+    
+    def save_state(self, timestamp, rank):
+        self.states[float(timestamp)] = PlayerState(rank=rank,
+                                             mu=self.mu,
+                                             sigma=self.sigma,
+                                             score=self.score)
 
 
 class TestPlayer(Player):

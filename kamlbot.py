@@ -1,15 +1,18 @@
 import discord
+import io
 import time
 
 from datetime import datetime
 
 from difflib import get_close_matches
 
-from discord import Embed, Message, TextChannel
+from discord import Embed, File, Message, TextChannel
 from discord.ext import commands
 from discord.ext.commands import Bot
 
 from itertools import chain
+
+from matplotlib import pyplot as plt
 
 from player import PlayerManager, PlayerNotFoundError
 from ranking import Ranking
@@ -227,6 +230,92 @@ async def alias(cmd, *names):
                                aliases="\n".join(not_found))
 
     await cmd.channel.send(msg)
+    await cmd.channel.send(kamlbot.leaderboard_content(start, stop))
+
+
+# TODO bundle the stuff to find a player in a separate function
+@kamlbot.command(help="""
+Get a lot of info on a player.
+""")
+async def allinfo(cmd, player_name=None):
+    if player_name is None:
+        player_name = cmd.author.id
+
+    try:
+        player = kamlbot.get_player(player_name,
+                                    test_mention=True,
+                                    create_missing=False)
+    except PlayerNotFoundError:
+        msg = kamlbot.message("player_not_found_error",
+                              player_name=player_name)
+        await cmd.channel.send(msg)
+        return
+
+    fig, ax = plt.subplots()
+    times = player.times
+    days = (times - times[0])/(60*60*24)
+    ax.plot(days, player.scores)
+    ax.set_xlabel("Days since first game")
+    ax.set_ylabel("Score")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png')
+    buf.seek(0)
+
+    await cmd.channel.send(file=File(buf, "ranks.png"))
+
+    buf.close()
+
+
+@kamlbot.command(help="""
+Compare two players, including the probability of win estimated by the Kamlbot.
+""")
+async def compare(cmd, p1_name, p2_name):
+    try:
+        p1 = kamlbot.get_player(p1_name,
+                                test_mention=True,
+                                create_missing=False)
+
+    except PlayerNotFoundError:
+        msg = kamlbot.message("player_not_found_error",
+                              player_name=p1_name)
+        await cmd.channel.send(msg)
+        return
+    
+    try:
+        p2 = kamlbot.get_player(p2_name,
+                                test_mention=True,
+                                create_missing=False)
+
+    except PlayerNotFoundError:
+        msg = kamlbot.message("player_not_found_error",
+                              player_name=p2_name)
+        await cmd.channel.send(msg)
+        return
+
+    msg = kamlbot.message("player_rank",
+                          player=p1,
+                          rank=kamlbot.ranking.player_rank(p1))
+
+    msg += "\n" + kamlbot.message("player_rank",
+                                  player=p2,
+                                  rank=kamlbot.ranking.player_rank(p2))
+    
+    
+    comparison = kamlbot.ranking.comparison(p1, p2)
+
+    if comparison is not None:
+        msg += "\n" + kamlbot.message("win_probability",
+                                      p1=p1,
+                                      p2=p2,
+                                      comparison=comparison)
+    else:
+        msg += "\n" + kamlbot.message("win_probability_blind",
+                                      p1=p1,
+                                      p2=p2,
+                                      win_estimate=100*kamlbot.ranking.win_estimate(p1, p2))
+    
+    await cmd.channel.send(msg)
 
 
 @kamlbot.command(help="""
@@ -283,59 +372,6 @@ async def leaderboard(cmd, start, stop):
         await cmd.channel.send("At most 30 line can be displayed at once in leaderboards.")
         return
 
-    await cmd.channel.send(kamlbot.leaderboard_content(start, stop))
-
-
-@kamlbot.command(help="""
-Compare two players, including the probability of win estimated by the Kamlbot.
-""")
-async def compare(cmd, p1_name, p2_name):
-    try:
-        p1 = kamlbot.get_player(p1_name,
-                                test_mention=True,
-                                create_missing=False)
-
-    except PlayerNotFoundError:
-        msg = kamlbot.message("player_not_found_error",
-                              player_name=p1_name)
-        await cmd.channel.send(msg)
-        return
-    
-    try:
-        p2 = kamlbot.get_player(p2_name,
-                                test_mention=True,
-                                create_missing=False)
-
-    except PlayerNotFoundError:
-        msg = kamlbot.message("player_not_found_error",
-                              player_name=p2_name)
-        await cmd.channel.send(msg)
-        return
-
-    msg = kamlbot.message("player_rank",
-                          player=p1,
-                          rank=kamlbot.ranking.player_rank(p1))
-
-    msg += "\n" + kamlbot.message("player_rank",
-                                  player=p2,
-                                  rank=kamlbot.ranking.player_rank(p2))
-    
-    
-    comparison = kamlbot.ranking.comparison(p1, p2)
-
-    if comparison is not None:
-        msg += "\n" + kamlbot.message("win_probability",
-                                      p1=p1,
-                                      p2=p2,
-                                      comparison=comparison)
-    else:
-        msg += "\n" + kamlbot.message("win_probability_blind",
-                                      p1=p1,
-                                      p2=p2,
-                                      win_estimate=100*kamlbot.ranking.win_estimate(p1, p2))
-    
-    await cmd.channel.send(msg)
-
 
 @kamlbot.command(help="""
 Return the rank and some additional information about the player.
@@ -362,6 +398,7 @@ async def rank(cmd, player_name=None):
                           player=player,
                           rank=kamlbot.ranking.player_rank(player))
     await cmd.channel.send(msg)
+
 
 @kamlbot.command()
 @commands.has_role(ROLENAME)

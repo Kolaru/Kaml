@@ -78,8 +78,8 @@ class Ranking:
     def players(self):
         return self.player_manager.players
     
-    def player_rank(self, player):
-        return self.player_to_rank.get(player, "[unkown]")
+    def player_rank(self, player, default="[unkown]"):
+        return self.player_to_rank.get(player, default)
 
     async def register_game(self, game, save=True, update_ranking=True):
         if game["winner"] == "":
@@ -93,6 +93,9 @@ class Ranking:
             
         winner = self.get_player(game["winner"])
         loser = self.get_player(game["loser"])
+
+        winner.save_state(game["timestamp"], self.player_rank(winner, default=None))
+        loser.save_state(game["timestamp"], self.player_rank(loser, default=None))
 
         if (winner, loser) not in self.wins:
             self.wins[(winner, loser)] = 1
@@ -115,6 +118,8 @@ class Ranking:
             await save_single_game(game)
             await emit_signal("game_registered", change)
         
+        # Find a way to make ranking update cheap to be able to have full
+        # ranking history
         if update_ranking:
             await self.update_ranking()
 
@@ -124,7 +129,9 @@ class Ranking:
         filtered_players = [p for p in self.players if p.total_games > 10]
         self.ranked_players = sorted(filtered_players, key=lambda p: -p.score)
         self.player_to_rank = {p:(k+1) for k, p in enumerate(self.ranked_players)}
-
+        # TODO always get rank directly from player
+        for p, r in self.player_to_rank.items():
+            p.rank = r
         await emit_signal("ranking_updated")
     
     def win_estimate(self, p1, p2):
