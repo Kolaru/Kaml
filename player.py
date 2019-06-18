@@ -89,21 +89,6 @@ class Player:
                                              score=self.score)
 
 
-class TestPlayer(Player):
-    def __init__(self, name, mu, sigma):
-        super().__init__(name)
-        self.true_mu = mu
-        self.true_sigma = sigma
-
-    def __str__(self):
-        base = super().__str__()
-        return base + "\n  True values: mu = {:0.0f}, sigma = {:0.0f}".format(self.true_mu, self.true_sigma)
-
-    def win_exact(self, other):
-        # print(- (self.mu - other.mu)/sqrt(self.variance + other.variance))
-        return 1 - Gaussian.cdf(-(self.true_mu - other.true_mu)/sqrt(self.true_sigma**2 + other.true_sigma**2))
-
-
 class PlayerNotFoundError(Exception):
     def __init__(self, player_id):
         self.player_id = player_id

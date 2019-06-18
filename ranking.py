@@ -2,13 +2,14 @@ import numpy as np
 import time
 import trueskill
 
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 from numpy import exp, log, sqrt
 from scipy.optimize import least_squares
 
 from save_and_load import save_games, save_single_game, get_game_results
 from utils import emit_signal, locking, logger
 
+MINGAMES = 10
 
 MU_SHIFT = 60
 SIGMA_SCALE = 0.02
@@ -31,7 +32,7 @@ class Ranking:
     def __init__(self, player_manager,
                  mu=25, sigma=25/3, beta=25/6, tau=25/300):
         self.player_manager = player_manager
-        self.ranked_players = []
+        self.rank_to_player = OrderedDict()
         self.player_to_rank = {}
         self.wins = {}
         self.ts_env = trueskill.TrueSkill(
@@ -43,7 +44,8 @@ class Ranking:
         self.ts_env.make_as_global()
 
     def __getitem__(self, rank):
-        return self.ranked_players[rank]
+        players = [p for p in self.players if p.rank is not None]
+        return sorted(players, key=lambda p: p.rank)[rank]
     
     def comparison(self, p1, p2):
         wins = self.wins.get((p1, p2), 0)
@@ -67,9 +69,9 @@ class Ranking:
 
         for g in game_results:
             await self.register_game(g, save=False,
-                                     update_ranking=False)
+                                     signal_update=False)
         
-        await self.update_ranking()
+        await emit_signal("ranking_updated")
 
     def get_player(self, *args, **kwargs):
         return self.player_manager.get_player(*args, **kwargs)
@@ -77,11 +79,8 @@ class Ranking:
     @property
     def players(self):
         return self.player_manager.players
-    
-    def player_rank(self, player, default="[unkown]"):
-        return self.player_to_rank.get(player, default)
 
-    async def register_game(self, game, save=True, update_ranking=True):
+    async def register_game(self, game, save=True, signal_update=True):
         if game["winner"] == "":
             game["winner"] = None
         
@@ -94,8 +93,11 @@ class Ranking:
         winner = self.get_player(game["winner"])
         loser = self.get_player(game["loser"])
 
-        winner.save_state(game["timestamp"], self.player_rank(winner, default=None))
-        loser.save_state(game["timestamp"], self.player_rank(loser, default=None))
+        winner_old_rank = winner.rank
+        loser_old_rank = loser.rank
+
+        winner.save_state(game["timestamp"], winner_old_rank)
+        loser.save_state(game["timestamp"], loser_old_rank)
 
         if (winner, loser) not in self.wins:
             self.wins[(winner, loser)] = 1
@@ -109,31 +111,89 @@ class Ranking:
         winner.wins += 1
         loser.losses += 1
 
+        winner_dscore = winner.score - winner_old_score
+        loser_dscore = loser.score - loser_old_score
+
         change = ScoreChange(winner=winner,
                              loser=loser,
-                             winner_dscore=winner.score - winner_old_score,
-                             loser_dscore=loser.score - loser_old_score)
+                             winner_dscore=winner_dscore,
+                             loser_dscore=loser_dscore)
+
+        self.update_ranks(winner, winner_dscore)
+        self.update_ranks(loser, loser_dscore)
 
         if save:
             await save_single_game(game)
             await emit_signal("game_registered", change)
         
-        # Find a way to make ranking update cheap to be able to have full
-        # ranking history
-        if update_ranking:
-            await self.update_ranking()
+        if signal_update:
+            await emit_signal("ranking_updated")
 
         return change
-    
-    async def update_ranking(self):
-        filtered_players = [p for p in self.players if p.total_games > 10]
-        self.ranked_players = sorted(filtered_players, key=lambda p: -p.score)
-        self.player_to_rank = {p:(k+1) for k, p in enumerate(self.ranked_players)}
-        # TODO always get rank directly from player
-        for p, r in self.player_to_rank.items():
-            p.rank = r
-        await emit_signal("ranking_updated")
-    
+
+    def update_ranks(self, player, dscore):
+        if player.total_games < MINGAMES:
+            return
+        
+        if dscore == 0:
+            return
+        elif dscore < 0:
+            inc = 1
+        else:
+            inc = -1
+
+        N = len(self.rank_to_player)
+
+        if N == 0:
+            player.rank = 0
+            self.rank_to_player[0] = player
+            return
+        
+        old_rank = player.rank
+
+        if old_rank is None:
+            inc = -1
+            old_rank = N
+            N += 1
+
+        if inc == -1 and old_rank == 0:
+            return
+        
+        if inc == 1 and old_rank == N - 1:
+            return
+
+        k = old_rank + inc
+                
+        other = self.rank_to_player[k]
+
+        while k > 0 and k < N - 1 and other.score*inc > player.score*inc:
+            other.rank = k - inc
+            self.rank_to_player[other.rank] = other
+
+            k += inc
+            other = self.rank_to_player[k]
+        
+        if other.score*inc > player.score*inc:
+            other.rank  = k - inc
+            self.rank_to_player[other.rank] = other
+        else:
+            k -= inc
+
+        player.rank = k
+        self.rank_to_player[k] = player
+
+        # print()
+        # print(f"Updated for {player.id} ({dscore}) previously ranked {old_rank}")
+        
+        # for r, p in self.rank_to_player.items():
+        #     print(f"{r} : {p.score} ({p.id})")
+
+        if k > 0:
+            assert player.score <= self.rank_to_player[k - 1].score
+        
+        if k < N - 1:
+            assert player.score >= self.rank_to_player[k + 1].score
+        
     def win_estimate(self, p1, p2):
         delta_mu = p1.mu - p2.mu
         sum_sigma2 = p1.sigma**2 + p2.sigma**2

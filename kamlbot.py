@@ -63,7 +63,6 @@ class Kamlbot(Bot):
             ranking = self.ranking
 
         new_content = "\n".join([self.message("leaderboard_line",
-                                              rank=ranking.player_rank(player),
                                               player=player)
                                  for player in ranking[start:stop]])
 
@@ -230,7 +229,6 @@ async def alias(cmd, *names):
                                aliases="\n".join(not_found))
 
     await cmd.channel.send(msg)
-    await cmd.channel.send(kamlbot.leaderboard_content(start, stop))
 
 
 # TODO bundle the stuff to find a player in a separate function
@@ -251,12 +249,30 @@ async def allinfo(cmd, player_name=None):
         await cmd.channel.send(msg)
         return
 
-    fig, ax = plt.subplots()
-    times = player.times
+    fig, axes = plt.subplots(2, 2, sharex="col", sharey="row")
+    skip = 10  # TODO use global constant MINGAMES
+    times = player.times[skip:]
     days = (times - times[0])/(60*60*24)
-    ax.plot(days, player.scores)
-    ax.set_xlabel("Days since first game")
+    scores = player.scores[skip:]
+    ranks = player.ranks[skip:]
+    ns = range(skip, len(scores) + skip)
+
+    ax = axes[0, 0]
+    ax.plot(ns, scores)
     ax.set_ylabel("Score")
+
+    ax = axes[0, 1]
+    ax.plot(days, scores)
+
+    ax = axes[1, 0]
+    ax.plot(ns, ranks)
+    ax.set_ylabel("Rank")
+    ax.set_xlabel("Number of games played")
+
+    ax = axes[1, 1]
+    ax.plot(days, ranks)
+    ax.set_xlabel("Days since first game")
+    ax.set_ylim(ax.get_ylim()[::-1])  # ax.invert_yaxis() somehow doesn't work
 
     buf = io.BytesIO()
     fig.savefig(buf, format='png')
@@ -294,12 +310,10 @@ async def compare(cmd, p1_name, p2_name):
         return
 
     msg = kamlbot.message("player_rank",
-                          player=p1,
-                          rank=kamlbot.ranking.player_rank(p1))
+                          player=p1)
 
     msg += "\n" + kamlbot.message("player_rank",
-                                  player=p2,
-                                  rank=kamlbot.ranking.player_rank(p2))
+                                  player=p2)
     
     
     comparison = kamlbot.ranking.comparison(p1, p2)
@@ -371,6 +385,8 @@ async def leaderboard(cmd, start, stop):
     if stop - start > 30:
         await cmd.channel.send("At most 30 line can be displayed at once in leaderboards.")
         return
+    
+    await cmd.channel.send(kamlbot.leaderboard_content(start, stop))
 
 
 @kamlbot.command(help="""
@@ -395,8 +411,7 @@ async def rank(cmd, player_name=None):
         return
 
     msg = kamlbot.message("player_rank",
-                          player=player,
-                          rank=kamlbot.ranking.player_rank(player))
+                          player=player)
     await cmd.channel.send(msg)
 
 
