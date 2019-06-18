@@ -1,6 +1,6 @@
 {
     "game_result_title": ":medal: Ranked battle has ended",
-    "game_result_description": ":crown: **{winner.mention}** {winner.score:.2f} (+{change.winner_dscore:.2f}) vs **{loser.mention}** {loser.score:.2f} ({change.loser_dscore:.2f})",
+    "game_result_description": ":crown: **{winner.mention}** {winner.score:.2f} ({change.winner_dscore:+.2f}) vs **{loser.mention}** {loser.score:.2f} ({change.loser_dscore:+.2f})",
 
     "no_alias_error": ":negative_squared_cross_mark: {user.mention} no in game names are associated to your discord profile.",
     "player_not_found_error": ":negative_squared_cross_mark: No player named **{player_name}** was found.",
