@@ -23,8 +23,11 @@ from utils import callback, connect, locking, logger
 tokens = load_tokens()
 ROLENAME = "Chamelier"
 
+"""
+    Kamlbot()
 
-# TODO add methods that should use the ones in the ranking
+Main bot class.
+"""
 class Kamlbot(Bot):
     def __init__(self, *args, **kwargs):
         connect("ranking_updated", self.edit_leaderboard)
@@ -32,26 +35,43 @@ class Kamlbot(Bot):
 
         self.player_manager = None
         self.ranking = None
-        self.is_ready = False
-        self.maintenance_mode = False
+        self.is_ready = False  # Determine if the bot is ready to process commands
 
         super().__init__(*args, **kwargs)
 
+    """
+        async Kamlbot.debug(msg)
+    
+    Log the given `msg` to the default logger with debug level and also send
+    the message to the debug discord chan.
+    """
     async def debug(self, msg):
         await self.debug_chan.send(msg)
         logger.debug(msg)
     
+    """
+        async Kamlbot.edit_leaderboard()
+    
+    Edit the leaderboard message with the current content.
+    """
     async def edit_leaderboard(self):
-        msg_id = self.leaderboard.last_message_id
-        msg = await self.leaderboard.fetch_message(msg_id)
+        msg = await self.leaderboard.fetch_message(588703303932706835)
         await msg.edit(content=self.leaderboard_content(1, 20))
     
+    """
+        Kamlbot.get_player(*args, **kwargs)
+    
+    Wraps the `get_player` method of the player manager.
+    """
     def get_player(self, *args, **kwargs):
         return self.player_manager.get_player(*args, **kwargs)
+
+    """
+        Kamlbot.leaderboard_content(start, stop[, experiment=False])
     
-    async def info(self, msg):
-        await self.info_chan.send(msg)
-    
+    Generate the string content of a leaderboard message.
+    """
+    # TODO Make this a method of the raniking object
     def leaderboard_content(self, start, stop, experimental=False):
         # Convert from base 1 indexing for positive ranks
         if start >= 0:
@@ -65,9 +85,17 @@ class Kamlbot(Bot):
         new_content = "\n".join([self.message("leaderboard_line",
                                               player=player)
                                  for player in ranking[start:stop]])
-
+        
         return f"```\n{new_content}\n```"
     
+    """
+        async Kamlbot.load_all()
+
+    Load everything from files and fetch missing games from the PW matchboard
+    channel.
+
+    Erase the current state of the Kamlbot.
+    """
     async def load_all(self):
         self.messages = load_messages()
 
@@ -81,26 +109,43 @@ class Kamlbot(Bot):
 
         await self.ranking.fetch_data(self.matchboard)
 
+    """
+        Kamlbot.message(msg_name, **kwargs)
+    
+    Return the message of the given `msg_name` using the key word arguments
+    to format it.
+    """
+    # TODO Should not be a method of the Kamlbot class. Maybe a MessageManager
+    # class may be useful.
     def message(self, msg_name, **kwargs):
         return self.messages[msg_name].format(**kwargs)
 
+    # Called for every messages sent in any of the server to which the bot
+    # has access.
     async def on_message(self, msg):
+        # Only read messages if the bot is ready
         if not self.is_ready:
             return
 
+        # Register the new games published in the PW matchboard
         if msg.channel == self.matchboard:
             game = parse_matchboard_msg(msg)
             if game is not None:
                 await self.ranking.register_game(game)
 
+        # Only process commands in the KAML server
         elif msg.guild.id == tokens["kaml_server_id"]:
             await self.process_commands(msg)
 
+    # Called when the Bot has finished his initialization. May be called
+    # multiple times.
     async def on_ready(self):
+        # If the player_manager is set, it means this has already run at least once.
         if self.player_manager is not None:
             print("Too much on_ready")
             return
 
+        # Retrieve special channels
         for chan in self.get_guild(tokens["kaml_server_id"]).channels:
             if chan.name == "debug":
                 self.debug_chan = chan
@@ -110,9 +155,6 @@ class Kamlbot(Bot):
             
             if chan.name == "leaderboard":
                 self.leaderboard = chan
-            
-            if chan.name == "general":
-                self.info_chan = chan
         
         for chan in self.get_guild(tokens["pw_server_id"]).channels:
             if chan.name == "matchboard":
@@ -130,12 +172,16 @@ class Kamlbot(Bot):
         logger.info(f"Initialization finished in {dt:0.2f} s.")
         await self.debug(f"Initialization finished in {dt:0.2f} s.")
         self.is_ready = True
-        # await self.info("The Kamlbot is ready to rock and ready to rank!")
 
     @property
     def players(self):
         return self.player_manager.players
     
+    """
+        async send_game_result(change)
+    
+    Create a new message in the KAML matchboard.
+    """
     async def send_game_result(self, change):
         msg = self.message("game_result_description",
                            change=change,
@@ -150,6 +196,13 @@ class Kamlbot(Bot):
         embed.set_footer(text="")
         await self.kamlboard.send(embed=embed)
 
+    """
+        async update_mentions([player_manager=None])
+    
+    Update the string used to identify players for all players.
+
+    Currently fetch the server nickname of every registered players.
+    """
     @locking("mentions")
     async def update_mentions(self, player_manager=None):
         if player_manager is None:
@@ -333,7 +386,7 @@ async def compare(cmd, p1_name, p2_name):
 
 
 @kamlbot.command(help="""
-Create an experimental ranking with custom TS values.
+[ADMIN] Create an experimental ranking with custom TS values.
 """)
 @commands.has_role(ROLENAME)
 async def exp_ranking(cmd, mu, sigma, beta, tau):
@@ -355,7 +408,9 @@ async def exp_ranking(cmd, mu, sigma, beta, tau):
         await cmd.channel.send(f"Experimental ranking initialized in {dt:.2f} s.")
 
 
-@kamlbot.command()
+@kamlbot.command(help="""
+[ADMIN] Show the experimental leaderboard.
+""")
 async def exp_leaderboard(cmd, start, stop):
     try:
         start = int(start)
@@ -415,7 +470,9 @@ async def rank(cmd, player_name=None):
     await cmd.channel.send(msg)
 
 
-@kamlbot.command()
+@kamlbot.command(help="""
+[ADMIN] Reload everything from files.
+""")
 @commands.has_role(ROLENAME)
 async def reload(cmd):
     async with cmd.typing():
