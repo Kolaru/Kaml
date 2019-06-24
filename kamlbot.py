@@ -1,5 +1,6 @@
 import discord
 import io
+import numpy as np
 import time
 
 from datetime import datetime
@@ -17,7 +18,7 @@ from matplotlib import pyplot as plt
 from player import PlayerManager, PlayerNotFoundError
 from ranking import Ranking
 from save_and_load import load_messages, load_ranking_config, load_tokens, parse_matchboard_msg
-from utils import callback, connect, locking, logger
+from utils import connect, locking, logger
 
 
 tokens = load_tokens()
@@ -220,7 +221,7 @@ JET_ALIASES = ["#LegalizeEdgyMemes", "JetEriksen", "KSR JetEriksen"]
 
 @kamlbot.check
 async def check_available(cmd):
-    if kamlbot.is_ready and not kamlbot.maintenance_mode:
+    if kamlbot.is_ready:
         return True
     else:
         await cmd.channel.send("Kamlbot not ready, please wait a bit.")
@@ -493,6 +494,46 @@ async def search(cmd, name, n=5):
     
     msg = "\n".join(matches)
     await cmd.channel.send(f"```\n{msg}\n```")
+
+
+@kamlbot.command()
+async def stats(cmd):
+    nbins = 5
+    minscore = -5
+    maxscore = 35
+    bin_width = (maxscore - minscore)/nbins
+    score_bins = np.linspace(minscore, maxscore, nbins)
+
+    week = 7*24*60*60
+    mintime = 1513271300
+    maxtime = time.time()
+    temp = np.arange(mintime, maxtime, week)
+    time_bins = np.zeros(len(temp)+1)
+    time_bins[:-1] = temp
+    time_bins[-1] = maxtime
+
+    weekly_scores = [[] for k in range(len(time_bins) - 1)]
+
+    for p in kamlbot.ranking.players:
+        for timestamp, state in p.states.items():
+            for k, t in enumerate(time_bins):
+                if timestamp < t:
+                    weekly_scores[k-1].append(state.score)
+                    break
+    
+    weekly_hist = []
+    for weekly_score in weekly_scores:
+        hist, _ = np.histogram(weekly_score, score_bins, density=True)
+        weekly_hist.append(hist)
+
+    quantiles = np.transpose(weekly_hist)
+    cumulative = np.zeros(len(weekly_hist))
+
+    for quant in quantiles:
+        cumulative += quant*bin_width
+        plt.plot(cumulative)
+    
+    plt.show()
 
 
 @kamlbot.command(help="""
