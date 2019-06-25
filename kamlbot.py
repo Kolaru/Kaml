@@ -451,9 +451,12 @@ Return the rank and some additional information about the player.
 If used without argument, return the rank of the player associated with the
 discord profile of the user.
 """)
-async def rank(cmd, player_name=None):
+async def rank(cmd, player_name=None, *parts):
     if player_name is None:
         player_name = cmd.author.id
+    
+    if len(parts) > 0:
+        player_name = " ".join([player_name, *parts])
 
     try:
         player = kamlbot.get_player(player_name,
