@@ -40,40 +40,25 @@ class Kamlbot(Bot):
 
         super().__init__(*args, **kwargs)
 
-    """
-        async Kamlbot.debug(msg)
-    
-    Log the given `msg` to the default logger with debug level and also send
-    the message to the debug discord chan.
-    """
     async def debug(self, msg):
+        """Log the given `msg` to the default logger with debug level and
+        also send the message to the debug discord chan.
+        """
         await self.debug_chan.send(msg)
         logger.debug(msg)
-    
-    """
-        async Kamlbot.edit_leaderboard()
-    
-    Edit the leaderboard message with the current content.
-    """
+
     async def edit_leaderboard(self):
+        """Edit the leaderboard message with the current content."""
         msg = await self.leaderboard.fetch_message(588703303932706835)
         await msg.edit(content=self.leaderboard_content(1, 20))
-    
-    """
-        Kamlbot.get_player(*args, **kwargs)
-    
-    Wraps the `get_player` method of the player manager.
-    """
+
     def get_player(self, *args, **kwargs):
+        """Wraps the `get_player` method of the player manager."""
         return self.player_manager.get_player(*args, **kwargs)
 
-    """
-        Kamlbot.leaderboard_content(start, stop[, experiment=False])
-    
-    Generate the string content of a leaderboard message.
-    """
-    # TODO Make this a method of the raniking object
+    # TODO Make this a method of the ranking object
     def leaderboard_content(self, start, stop, experimental=False):
+        """Generate the string content of a leaderboard message."""
         # Convert from base 1 indexing for positive ranks
         if start >= 0:
             start -= 1
@@ -88,16 +73,13 @@ class Kamlbot(Bot):
                                  for player in ranking[start:stop]])
         
         return f"```\n{new_content}\n```"
-    
-    """
-        async Kamlbot.load_all()
 
-    Load everything from files and fetch missing games from the PW matchboard
-    channel.
-
-    Erase the current state of the Kamlbot.
-    """
     async def load_all(self):
+        """Load everything from files and fetch missing games from the
+        PW matchboard channel.
+
+        Erase the current state of the Kamlbot.
+        """
         self.messages = load_messages()
 
         self.player_manager = PlayerManager()
@@ -110,15 +92,12 @@ class Kamlbot(Bot):
 
         await self.ranking.fetch_data(self.matchboard)
 
-    """
-        Kamlbot.message(msg_name, **kwargs)
-    
-    Return the message of the given `msg_name` using the key word arguments
-    to format it.
-    """
     # TODO Should not be a method of the Kamlbot class. Maybe a MessageManager
     # class may be useful.
     def message(self, msg_name, **kwargs):
+        """Return the message of the given `msg_name` using
+        the key word arguments to format it.
+        """
         return self.messages[msg_name].format(**kwargs)
 
     # Called for every messages sent in any of the server to which the bot
@@ -177,13 +156,9 @@ class Kamlbot(Bot):
     @property
     def players(self):
         return self.player_manager.players
-    
-    """
-        async send_game_result(change)
-    
-    Create a new message in the KAML matchboard.
-    """
+
     async def send_game_result(self, change):
+        """Create a new message in the KAML matchboard."""
         msg = self.message("game_result_description",
                            change=change,
                            winner=change.winner,
@@ -197,15 +172,12 @@ class Kamlbot(Bot):
         embed.set_footer(text="")
         await self.kamlboard.send(embed=embed)
 
-    """
-        async update_mentions([player_manager=None])
-    
-    Update the string used to identify players for all players.
-
-    Currently fetch the server nickname of every registered players.
-    """
     @locking("mentions")
     async def update_mentions(self, player_manager=None):
+        """Update the string used to identify players for all players.
+
+        Currently fetch the server nickname of every registered players.
+        """
         if player_manager is None:
             player_manager = self.player_manager
 
