@@ -50,11 +50,12 @@ class Kamlbot(Bot):
     async def edit_leaderboard(self):
         """Edit the leaderboard message with the current content."""
         try:
-            # Move this to tokens.json
-            msg = await self.leaderboard.fetch_message(588703303932706835)
-            await msg.edit(content=self.leaderboard_content(1, 20))
+            msg = self.leaderboard_msgs[0]
+            await msg.edit(content=self.leaderboard_content(1, 25))
+            msg = self.leaderboard_msgs[1]
+            await msg.edit(content=self.leaderboard_content(26, 50))
         except discord.errors.NotFound:
-            await self.leaderboard.send("Dummy message")
+            logger.warning("Leaderboard message not found for edition.")
 
     def get_player(self, *args, **kwargs):
         """Wraps the `get_player` method of the player manager."""
@@ -143,6 +144,10 @@ class Kamlbot(Bot):
         for chan in self.get_guild(tokens["pw_server_id"]).channels:
             if chan.name == "matchboard":
                 self.matchboard = chan
+        
+        # Retrieve special messages
+        self.leaderboard_msgs = [await self.leaderboard.fetch_message(msg_id) for
+                                 msg_id in tokens["leaderboard_msg_ids"]]
 
         await self.change_presence(status=discord.Status.online)
         await self.debug("The Kamlbot is logged in.")
@@ -419,6 +424,15 @@ async def leaderboard(cmd, start, stop):
         return
     
     await cmd.channel.send(kamlbot.leaderboard_content(start, stop))
+
+
+@kamlbot.command(help="""
+[Admin] Make the bot send `n` dummy messages.
+""")
+@commands.has_role(ROLENAME)
+async def msg(cmd, n=1):
+    for k in range(n):
+        await cmd.channel.send(f"Dummy message {k+1}/{n}")
 
 
 @kamlbot.command(help="""
