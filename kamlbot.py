@@ -49,8 +49,12 @@ class Kamlbot(Bot):
 
     async def edit_leaderboard(self):
         """Edit the leaderboard message with the current content."""
-        msg = await self.leaderboard.fetch_message(588703303932706835)
-        await msg.edit(content=self.leaderboard_content(1, 20))
+        try:
+            # Move this to tokens.json
+            msg = await self.leaderboard.fetch_message(588703303932706835)
+            await msg.edit(content=self.leaderboard_content(1, 20))
+        except discord.errors.NotFound:
+            await self.leaderboard.send("Dummy message")
 
     def get_player(self, *args, **kwargs):
         """Wraps the `get_player` method of the player manager."""
