@@ -522,7 +522,7 @@ async def stats(cmd):
 async def stop(cmd):
     print("Disconnecting Kamlbot")
     await kamlbot.change_presence(activity=None, status=discord.Status.offline)
-    await kamlbot.info("The Kamlbot takes his leave.")
+    await cmd.channel.send("The Kamlbot takes his leave.")
     logger.info("Disconnecting Kamlbot.")
     await kamlbot.close()
 
