@@ -254,7 +254,7 @@ async def alias(cmd, *names):
 
     if len(player.aliases) > 0:
         msg = kamlbot.message("associated_aliases",
-                              user=user,
+                              player=player,
                               aliases="\n".join(player.aliases))
     else:
         msg = kamlbot.message("no_alias_error", user=user)
@@ -313,6 +313,15 @@ async def allinfo(cmd, player_name=None):
     fig.savefig(buf, format='png')
     buf.seek(0)
 
+    if player.claimed:
+        msg = kamlbot.message("associated_aliases",
+                              player=player,
+                              aliases="\n".join(player.aliases))
+    else:
+        msg = kamlbot.message("player_not_claimed",
+                              player=player)
+    
+    await cmd.channel.send(msg)
     await cmd.channel.send(file=File(buf, "ranks.png"))
 
     buf.close()
