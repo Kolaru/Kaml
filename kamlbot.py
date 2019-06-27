@@ -49,8 +49,13 @@ class Kamlbot(Bot):
 
     async def edit_leaderboard(self):
         """Edit the leaderboard message with the current content."""
-        msg = await self.leaderboard.fetch_message(588703303932706835)
-        await msg.edit(content=self.leaderboard_content(1, 20))
+        try:
+            msg = self.leaderboard_msgs[0]
+            await msg.edit(content=self.leaderboard_content(1, 25))
+            msg = self.leaderboard_msgs[1]
+            await msg.edit(content=self.leaderboard_content(26, 50))
+        except discord.errors.NotFound:
+            logger.warning("Leaderboard message not found for edition.")
 
     def get_player(self, *args, **kwargs):
         """Wraps the `get_player` method of the player manager."""
@@ -139,6 +144,10 @@ class Kamlbot(Bot):
         for chan in self.get_guild(tokens["pw_server_id"]).channels:
             if chan.name == "matchboard":
                 self.matchboard = chan
+        
+        # Retrieve special messages
+        self.leaderboard_msgs = [await self.leaderboard.fetch_message(msg_id) for
+                                 msg_id in tokens["leaderboard_msg_ids"]]
 
         await self.change_presence(status=discord.Status.online)
         await self.debug("The Kamlbot is logged in.")
@@ -245,7 +254,7 @@ async def alias(cmd, *names):
 
     if len(player.aliases) > 0:
         msg = kamlbot.message("associated_aliases",
-                              user=user,
+                              player=player,
                               aliases="\n".join(player.aliases))
     else:
         msg = kamlbot.message("no_alias_error", user=user)
@@ -304,6 +313,15 @@ async def allinfo(cmd, player_name=None):
     fig.savefig(buf, format='png')
     buf.seek(0)
 
+    if player.claimed:
+        msg = kamlbot.message("associated_aliases",
+                              player=player,
+                              aliases="\n".join(player.aliases))
+    else:
+        msg = kamlbot.message("player_not_claimed",
+                              player=player)
+    
+    await cmd.channel.send(msg)
     await cmd.channel.send(file=File(buf, "ranks.png"))
 
     buf.close()
@@ -418,6 +436,15 @@ async def leaderboard(cmd, start, stop):
 
 
 @kamlbot.command(help="""
+[Admin] Make the bot send `n` dummy messages.
+""")
+@commands.has_role(ROLENAME)
+async def msg(cmd, n=1):
+    for k in range(n):
+        await cmd.channel.send(f"Dummy message {k+1}/{n}")
+
+
+@kamlbot.command(help="""
 Return the rank and some additional information about the player.
 
 If used without argument, return the rank of the player associated with the
@@ -518,7 +545,7 @@ async def stats(cmd):
 async def stop(cmd):
     print("Disconnecting Kamlbot")
     await kamlbot.change_presence(activity=None, status=discord.Status.offline)
-    await kamlbot.info("The Kamlbot takes his leave.")
+    await cmd.channel.send("The Kamlbot takes his leave.")
     logger.info("Disconnecting Kamlbot.")
     await kamlbot.close()
 
