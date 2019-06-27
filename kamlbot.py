@@ -71,7 +71,7 @@ class Kamlbot(Bot):
         """
         msg_builder.reload()
         self.player_manager = PlayerManager()
-        await self.player_manager.load_data()
+        self.player_manager.load_data()
         await self.update_mentions()
 
         ranking_config = load_ranking_config("base")
@@ -461,6 +461,10 @@ async def reload(cmd):
         dt = time.time() - t
         await cmd.channel.send(f"Everything was reloaded (took {dt:.2f} s).")
 
+
+@kamlbot.command()
+async def save(cmd):
+    kamlbot.ranking.save()
 
 @kamlbot.command(help="""
 Search for a player. Optional argument `n` is the maximal number of name returned.

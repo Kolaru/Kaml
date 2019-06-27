@@ -1,4 +1,6 @@
+import json
 import numpy as np
+import os
 import time
 import trueskill
 
@@ -11,9 +13,6 @@ from save_and_load import save_games, save_single_game, get_game_results
 from utils import emit_signal, locking, logger
 
 MINGAMES = 10
-
-MU_SHIFT = 60
-SIGMA_SCALE = 0.02
 
 BETA = 25/6
 
@@ -30,8 +29,12 @@ ScoreChange = namedtuple("ScoreChange", ["winner",
 
 
 class Ranking:
-    def __init__(self, player_manager,
+    def __init__(self, player_manager, name="Main",
                  mu=25, sigma=25/3, beta=25/6, tau=25/300):
+        os.makedirs("rankings", exist_ok=True)
+        self.name = name
+        self.save_path = f"rankings/{name}.json"
+
         self.player_manager = player_manager
         self.rank_to_player = OrderedDict()
         self.player_to_rank = {}
@@ -45,8 +48,12 @@ class Ranking:
         self.ts_env.make_as_global()
 
     def __getitem__(self, rank):
-        return list(self.rank_to_player.values())[rank]
+        return self.players[rank]
     
+    @property
+    def players(self):
+        return list(self.rank_to_player.values())
+
     def comparison(self, p1, p2):
         wins = self.wins.get((p1, p2), 0)
         losses = self.wins.get((p2, p1), 0)
@@ -87,10 +94,6 @@ class Ranking:
                                  for player in self[start:stop]])
         
         return f"```\n{new_content}\n```"
-
-    @property
-    def players(self):
-        return self.player_manager.players
 
     async def register_game(self, game, save=True, signal_update=True):
         if game["winner"] == "":
@@ -199,9 +202,13 @@ class Ranking:
         
         if k < N - 1:
             assert player.score >= self.rank_to_player[k + 1].score
-        
+    
+    def save(self):
+        with open(self.save_path, "w", encoding="utf-8") as file:
+            json.dump([p.asdict() for p in self.players], file)
+
     def win_estimate(self, p1, p2):
         delta_mu = p1.mu - p2.mu
         sum_sigma2 = p1.sigma**2 + p2.sigma**2
-        denom = sqrt(2 * BETA**2 + sum_sigma2)
+        denom = sqrt(2 * BETA**2 + sum_sigma2)  # TODO Get beta from the ranking
         return self.ts_env.cdf(delta_mu / denom)
