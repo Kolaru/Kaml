@@ -1,9 +1,13 @@
 import logging
+import os
 
 from asyncio import Lock
 from logging.handlers import TimedRotatingFileHandler
 
 ## Logging
+
+# Create log directory if it doesn't already exist
+os.makedirs("log", exist_ok=True)
 
 LOGFORMAT = "%(asctime)s  %(levelname)-10s %(message)s"
 formatter = logging.Formatter(LOGFORMAT)
