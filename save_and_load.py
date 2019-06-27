@@ -175,12 +175,6 @@ async def load_game_results():
     return game_results
 
 
-def load_messages():
-    with open("messages.json", "r", encoding="utf-8") as file:
-        messages = json.load(file)
-    return messages
-
-
 def load_ranking_config(config_name):
     with open("ranking_config.json", "r", encoding="utf-8") as file:
         configs = json.load(file)
