@@ -52,9 +52,9 @@ class Kamlbot(Bot):
         """Edit the leaderboard message with the current content."""
         try:
             msg = self.leaderboard_msgs[0]
-            await msg.edit(content=self.leaderboard_content(1, 25))
+            await msg.edit(content=self.ranking.leaderboard(1, 25))
             msg = self.leaderboard_msgs[1]
-            await msg.edit(content=self.leaderboard_content(26, 50))
+            await msg.edit(content=self.ranking.leaderboard(26, 50))
         except discord.errors.NotFound:
             logger.warning("Leaderboard message not found for edition.")
 
@@ -62,23 +62,6 @@ class Kamlbot(Bot):
         """Wraps the `get_player` method of the player manager."""
         return self.player_manager.get_player(*args, **kwargs)
 
-    # TODO Make this a method of the ranking object
-    def leaderboard_content(self, start, stop, experimental=False):
-        """Generate the string content of a leaderboard message."""
-        # Convert from base 1 indexing for positive ranks
-        if start >= 0:
-            start -= 1
-
-        if experimental:
-            ranking = self.experimental_ranking
-        else:
-            ranking = self.ranking
-
-        new_content = "\n".join([msg_builder.build("leaderboard_line",
-                                                   player=player)
-                                 for player in ranking[start:stop]])
-        
-        return f"```\n{new_content}\n```"
 
     async def load_all(self):
         """Load everything from files and fetch missing games from the
@@ -406,7 +389,7 @@ async def exp_leaderboard(cmd, start, stop):
         await cmd.channel.send("At most 30 line can be displayed at once in leaderboards.")
         return
 
-    await cmd.channel.send(kamlbot.leaderboard_content(start, stop, experimental=True))
+    await cmd.channel.send(kamlbot.experimental_ranking.leaderboard(start, stop))
 
 
 @kamlbot.command(help="""
@@ -424,7 +407,7 @@ async def leaderboard(cmd, start, stop):
         await cmd.channel.send("At most 30 line can be displayed at once in leaderboards.")
         return
     
-    await cmd.channel.send(kamlbot.leaderboard_content(start, stop))
+    await cmd.channel.send(kamlbot.ranking.leaderboard(start, stop))
 
 
 @kamlbot.command(help="""
