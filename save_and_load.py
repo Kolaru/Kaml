@@ -126,34 +126,6 @@ def game_results_writer(file):
     return csv.DictWriter(file, fieldnames=["timestamp", "id", "winner", "loser"])
 
 
-@locking("alias.txt")
-async def load_alias_tables():
-    alias_to_id = dict()
-    id_to_aliases = dict()
-
-    try:
-        logger.info("Fetching saved alias table.")
-        with open("aliases.csv", "r", encoding="utf-8") as file:
-            for line in file:
-                player_id, *aliases = line.split(",")
-                player_id = int(player_id)
-
-                if isinstance(aliases, str):
-                    aliases = [aliases]
-
-                aliases = [alias.strip() for alias in aliases]
-                id_to_aliases[player_id] = set(aliases)
-
-                for alias in aliases:
-                    alias_to_id[alias] = player_id
-
-    except FileNotFoundError:
-        logger.warning("No saved alias table found.")
-        return dict(), dict()
-    
-    return alias_to_id, id_to_aliases
-
-
 @locking("raw_results.csv")
 async def load_game_results():
     try:
