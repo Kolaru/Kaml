@@ -15,9 +15,10 @@ from itertools import chain
 
 from matplotlib import pyplot as plt
 
+from messages import msg_builder
 from player import PlayerManager, PlayerNotFoundError
 from ranking import Ranking
-from save_and_load import load_messages, load_ranking_config, load_tokens, parse_matchboard_msg
+from save_and_load import load_ranking_config, load_tokens, parse_matchboard_msg
 from utils import connect, locking, logger
 
 
@@ -73,8 +74,8 @@ class Kamlbot(Bot):
         else:
             ranking = self.ranking
 
-        new_content = "\n".join([self.message("leaderboard_line",
-                                              player=player)
+        new_content = "\n".join([msg_builder.build("leaderboard_line",
+                                                   player=player)
                                  for player in ranking[start:stop]])
         
         return f"```\n{new_content}\n```"
@@ -85,8 +86,7 @@ class Kamlbot(Bot):
 
         Erase the current state of the Kamlbot.
         """
-        self.messages = load_messages()
-
+        msg_builder.reload()
         self.player_manager = PlayerManager()
         await self.player_manager.load_data()
         await self.update_mentions()
@@ -96,14 +96,6 @@ class Kamlbot(Bot):
                                **ranking_config)
 
         await self.ranking.fetch_data(self.matchboard)
-
-    # TODO Should not be a method of the Kamlbot class. Maybe a MessageManager
-    # class may be useful.
-    def message(self, msg_name, **kwargs):
-        """Return the message of the given `msg_name` using
-        the key word arguments to format it.
-        """
-        return self.messages[msg_name].format(**kwargs)
 
     # Called for every messages sent in any of the server to which the bot
     # has access.
@@ -168,14 +160,14 @@ class Kamlbot(Bot):
 
     async def send_game_result(self, change):
         """Create a new message in the KAML matchboard."""
-        msg = self.message("game_result_description",
-                           change=change,
-                           winner=change.winner,
-                           loser=change.loser)
+        msg = msg_builder.build("game_result_description",
+                                change=change,
+                                winner=change.winner,
+                                loser=change.loser)
 
         embed = Embed(color=0xf36541,
                     timestamp=datetime.now(),
-                    title=self.message("game_result_title"),
+                    title=msg_builder.build("game_result_title"),
                     description=msg)
 
         embed.set_footer(text="")
@@ -219,18 +211,18 @@ async def alias(cmd, *names):
     logger.info("{0.mention} claims names {1}".format(user, names))
 
     if user.id == tokens["jet_id"] and any([name not in JET_ALIASES for name in names]):
-        msg = kamlbot.message("anti_jet_meme")
+        msg = msg_builder.build("anti_jet_meme")
         await cmd.channel.send(msg)
         return
     
     if len(names) == 0:
         player = kamlbot.get_player(user.id)
         if len(player.aliases) > 0:
-            msg = kamlbot.message("associated_aliases",
-                                user=user,
-                                aliases="\n".join(player.aliases))
+            msg = msg_builder.build("associated_aliases",
+                                    user=user,
+                                    aliases="\n".join(player.aliases))
         else:
-            msg = kamlbot.message("no_alias_error", user=user)
+            msg = msg_builder.build("no_alias_error", user=user)
         
         await cmd.channel.send(msg)
         return
@@ -238,13 +230,13 @@ async def alias(cmd, *names):
     taken = kamlbot.player_manager.extract_claims(names)
 
     if len(taken) > 0:
-        taken_list = [kamlbot.message("taken_alias",
-                                      alias=name,
-                                      player=player)
+        taken_list = [msg_builder.build("taken_alias",
+                                        alias=name,
+                                        player=player)
                       for name, player in taken.items()]
-        msg = kamlbot.message("not_associated_aliases",
-                              n=len(taken),
-                              taken_aliases="\n".join(taken_list))
+        msg = msg_builder.build("not_associated_aliases",
+                                n=len(taken),
+                                taken_aliases="\n".join(taken_list))
         await cmd.channel.send(msg)
         return
 
@@ -253,15 +245,15 @@ async def alias(cmd, *names):
     await kamlbot.update_mentions()
 
     if len(player.aliases) > 0:
-        msg = kamlbot.message("associated_aliases",
-                              player=player,
-                              aliases="\n".join(player.aliases))
+        msg = msg_builder.build("associated_aliases",
+                                player=player,
+                                aliases="\n".join(player.aliases))
     else:
-        msg = kamlbot.message("no_alias_error", user=user)
+        msg = msg_builder.build("no_alias_error", user=user)
 
     if len(not_found) > 0:
-        msg += kamlbot.message("not_found_aliases",
-                               aliases="\n".join(not_found))
+        msg += msg_builder.build("not_found_aliases",
+                                 aliases="\n".join(not_found))
 
     await cmd.channel.send(msg)
 
@@ -279,8 +271,8 @@ async def allinfo(cmd, player_name=None):
                                     test_mention=True,
                                     create_missing=False)
     except PlayerNotFoundError:
-        msg = kamlbot.message("player_not_found_error",
-                              player_name=player_name)
+        msg = msg_builder.build("player_not_found_error",
+                                player_name=player_name)
         await cmd.channel.send(msg)
         return
 
@@ -314,12 +306,12 @@ async def allinfo(cmd, player_name=None):
     buf.seek(0)
 
     if player.claimed:
-        msg = kamlbot.message("associated_aliases",
-                              player=player,
-                              aliases="\n".join(player.aliases))
+        msg = msg_builder.build("associated_aliases",
+                                player=player,
+                                aliases="\n".join(player.aliases))
     else:
-        msg = kamlbot.message("player_not_claimed",
-                              player=player)
+        msg = msg_builder.build("player_not_claimed",
+                                player=player)
     
     await cmd.channel.send(msg)
     await cmd.channel.send(file=File(buf, "ranks.png"))
@@ -337,8 +329,8 @@ async def compare(cmd, p1_name, p2_name):
                                 create_missing=False)
 
     except PlayerNotFoundError:
-        msg = kamlbot.message("player_not_found_error",
-                              player_name=p1_name)
+        msg = msg_builder.build("player_not_found_error",
+                                player_name=p1_name)
         await cmd.channel.send(msg)
         return
     
@@ -348,30 +340,30 @@ async def compare(cmd, p1_name, p2_name):
                                 create_missing=False)
 
     except PlayerNotFoundError:
-        msg = kamlbot.message("player_not_found_error",
-                              player_name=p2_name)
+        msg = msg_builder.build("player_not_found_error",
+                                player_name=p2_name)
         await cmd.channel.send(msg)
         return
 
-    msg = kamlbot.message("player_rank",
-                          player=p1)
+    msg = msg_builder.build("player_rank",
+                            player=p1)
 
-    msg += "\n" + kamlbot.message("player_rank",
-                                  player=p2)
+    msg += "\n" + msg_builder.build("player_rank",
+                                    player=p2)
     
     
     comparison = kamlbot.ranking.comparison(p1, p2)
 
     if comparison is not None:
-        msg += "\n" + kamlbot.message("win_probability",
-                                      p1=p1,
-                                      p2=p2,
-                                      comparison=comparison)
+        msg += "\n" + msg_builder.build("win_probability",
+                                        p1=p1,
+                                        p2=p2,
+                                        comparison=comparison)
     else:
-        msg += "\n" + kamlbot.message("win_probability_blind",
-                                      p1=p1,
-                                      p2=p2,
-                                      win_estimate=100*kamlbot.ranking.win_estimate(p1, p2))
+        msg += "\n" + msg_builder.build("win_probability_blind",
+                                        p1=p1,
+                                        p2=p2,
+                                        win_estimate=100*kamlbot.ranking.win_estimate(p1, p2))
     
     await cmd.channel.send(msg)
 
@@ -463,13 +455,13 @@ async def rank(cmd, player_name=None, *parts):
                                     create_missing=False)
 
     except PlayerNotFoundError:
-        msg = kamlbot.message("player_not_found_error",
-                              player_name=player_name)
+        msg = msg_builder.build("player_not_found_error",
+                                player_name=player_name)
         await cmd.channel.send(msg)
         return
 
-    msg = kamlbot.message("player_rank",
-                          player=player)
+    msg = msg_builder.build("player_rank",
+                            player=player)
     await cmd.channel.send(msg)
 
 
