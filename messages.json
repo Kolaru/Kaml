@@ -2,7 +2,7 @@
     "game_result_title": ":medal: Ranked battle has ended",
     "game_result_description": ":crown: **{winner.mention}** {winner.score:.2f} ({change.winner_dscore:+.2f}) vs **{loser.mention}** {loser.score:.2f} ({change.loser_dscore:+.2f})",
 
-    "no_alias_error": ":negative_squared_cross_mark: {user.mention} no in-game names are associated to your Discord profile.",
+    "no_alias_error": ":negative_squared_cross_mark: {user.mention} no in-game names are associated to your Discord profile. You can associate alias to your profile using the `!alias` command.",
     "player_not_found_error": ":negative_squared_cross_mark: No player named **{player_name}** was found.",
 
     "player_rank": ":ledger: **{player.mention}** is currently ranked **{player.rank}** and has **{player.score:.2f}** kamlpoints (± {player.sigma:.2f}) with {player.wins} wins and {player.losses} losses.",
@@ -16,5 +16,7 @@
     "not_found_aliases": "\nThe following requested name(s) has not previously appeared in the matchboard (they got associated to your profile anyway):\n```\n{aliases}\n```",
     "player_not_claimed": "The in game name `{player.mention}` is not currently claimed.",
 
-    "leaderboard_line": "{player.rank:<4} {player.score:<7.2f} ± {player.sigma:<5.2f} {player.mention:<20} {player.wins:<5}/{player.losses:<5}"
+    "leaderboard_line": "{player.rank:<4} {player.score:<7.2f} ± {player.sigma:<5.2f} {player.mention:<20} {player.wins:<5}/{player.losses:<5}",
+
+    "generic_error": "Something wrong happened. Hopefully <@314190533301895178> will be able to fix that shortly."
 }
