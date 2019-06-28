@@ -11,7 +11,7 @@ from datetime import datetime
 from difflib import get_close_matches
 
 from discord import Embed, File, Message, TextChannel
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ext.commands import Bot
 
 from itertools import chain
@@ -44,6 +44,21 @@ class Kamlbot(Bot):
 
         super().__init__(*args, **kwargs)
 
+        now = datetime.now()
+        nextnoon = now.replace(day=date.day + 1, hour=12, minute=0,
+                               second=0, microsecond=0)
+        self.loop.call_at(nextnoon.timestamp(), self.at_noon.start)
+
+    @tasks.loop(hours=24)
+    async def at_noon(self):
+        today = datetime.today()
+
+        if today.weekday() == 0:  # 0 is for monday
+            pass # TODO restart weekly ranking
+        
+        if today.day == 1:
+            pass # TODO restart monthly ranking
+            
     async def debug(self, msg):
         """Log the given `msg` to the default logger with debug level and
         also send the message to the debug discord chan.
