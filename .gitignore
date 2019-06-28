@@ -1,7 +1,7 @@
 /log
 /.vscode
 /__pycache__
-/build
+/rankings
 
 tokens.json
 *.csv

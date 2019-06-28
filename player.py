@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import time
 import trueskill
 
@@ -9,7 +10,7 @@ from random import randint, sample
 from random import random as rand
 from scipy.stats import norm as Gaussian
 
-from save_and_load import load_alias_tables, parse_mention_to_id, save_aliases
+from save_and_load import parse_mention_to_id, save_aliases
 from utils import locking, logger
 from utils import ChainedDict
 
@@ -82,6 +83,19 @@ class Player:
     def win_ratio(self):
         return self.wins/self.total_games
     
+    def asdict(self):
+        return dict(
+            rank=self.rank,
+            id=self.id,
+            aliases=list(self.aliases),
+            mention=self.mention,
+            claimed=self.claimed,
+            mu=self.mu,
+            sigma=self.sigma,
+            score=self.score,
+            states={t:s._asdict() for t, s in self.states.items()}
+        )
+    
     def save_state(self, timestamp, rank):
         self.states[float(timestamp)] = PlayerState(rank=rank,
                                              mu=self.mu,
@@ -105,22 +119,6 @@ class PlayerManager:
     def __init__(self):
         self.alias_to_id = {}
         self.id_to_player = {}
-    
-    async def load_data(self):
-        logger.info("Building PlayerManager.")
-        logger.info("PlayerManager - Fetching alias tables.")
-
-        self.alias_to_id, id_to_aliases = await load_alias_tables()
-        self.id_to_player = dict()
-
-        logger.info(f"PlayerManager - Constructing {len(id_to_aliases)} player objects.")
-
-        for player_id, aliases in id_to_aliases.items():
-            self.id_to_player[player_id] = Player(player_id=player_id,
-                                                  aliases=aliases)
-    
-    def alias_exists(self, alias):
-        return alias in self.alias_to_id
 
     @property
     def alias_to_player(self):
@@ -159,6 +157,9 @@ class PlayerManager:
         self.alias_to_id[name] = player_id
 
         return player
+    
+    def alias_exists(self, alias):
+        return alias in self.alias_to_id
 
     def associate_aliases(self, player_id, aliases):
         # Assume that none of the aliases is already taken
@@ -232,3 +233,37 @@ class PlayerManager:
     
     def is_claimed(self, alias):
         return alias in self.claimed_aliases
+
+    def load_data(self):
+        logger.info("Building PlayerManager.")
+        logger.info("PlayerManager - Fetching alias tables.")
+
+        self.alias_to_id = dict()
+        self.id_to_aliases = dict()
+
+        try:
+            logger.info("Fetching saved alias table.")
+            with open("aliases.csv", "r", encoding="utf-8") as file:
+                for line in file:
+                    player_id, *aliases = line.split(",")
+                    player_id = int(player_id)
+
+                    if isinstance(aliases, str):
+                        aliases = [aliases]
+
+                    aliases = [alias.strip() for alias in aliases]
+                    self.id_to_aliases[player_id] = set(aliases)
+
+                    for alias in aliases:
+                        self.alias_to_id[alias] = player_id
+
+        except FileNotFoundError:
+            logger.warning("No saved alias table found.")
+
+        self.id_to_player = dict()
+
+        logger.info(f"PlayerManager - Constructing {len(self.id_to_aliases)} player objects.")
+
+        for player_id, aliases in self.id_to_aliases.items():
+            self.id_to_player[player_id] = Player(player_id=player_id,
+                                                  aliases=aliases)
