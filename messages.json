@@ -9,7 +9,6 @@
     "win_probability":":desktop: According to my estimation **{p1.mention}** has a **{comparison.win_estimate:0.2f}%** chance of winning against **{p2.mention}**.\nMy records says that **{p1.mention}** has actually won **{comparison.wins}** out of their **{comparison.total}** games (**{comparison.win_empirical:0.2f}%** winrate).",
     "win_probability_blind":":desktop: No games were recorded between these two players. Nonetheless, my estimation says that **{p1.mention}** has a **{win_estimate:0.2f}%** chance of winning against **{p2.mention}**.",
 
-    "anti_jet_meme": "It looks like you are trying to claim somebody else name, Jet. If it's legit please contact Kolaru, otherwise: Nice try normie!",
     "taken_alias": "**{alias}** by {player.mention}",
     "not_associated_aliases": "{n} aliases not associated because already claimed:\n{taken_aliases}",
     "associated_aliases": "{player.mention} profile is associated to the following in game name(s):\n```\n{aliases}\n```",

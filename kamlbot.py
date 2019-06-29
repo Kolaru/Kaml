@@ -201,8 +201,6 @@ class Kamlbot(Bot):
 
 kamlbot = Kamlbot(command_prefix="!")
 
-JET_ALIASES = ["#LegalizeEdgyMemes", "JetEriksen", "KSR JetEriksen"]
-
 @kamlbot.check
 async def check_available(cmd):
     if kamlbot.is_ready:
@@ -220,10 +218,6 @@ async def alias(cmd, *names):
     user = cmd.author
 
     logger.info("{0.mention} claims names {1}".format(user, names))
-
-    if user.id == tokens["jet_id"] and any([name not in JET_ALIASES for name in names]):
-        await msg_builder.send(cmd.channel, "anti_jet_meme")
-        return
     
     player = await kamlbot.get_player(cmd=cmd)
 
