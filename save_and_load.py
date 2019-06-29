@@ -22,13 +22,10 @@ def clean_name(s):
     return s.strip().replace(",", "_").replace("\n", " ")
 
 
-"""
-    parse_matchboard_msg(msg)
-
-Parse a message on the matchboard, return the result as the tuple `winner, loser` or `None`
-if winner and loser can not be determined (e.g. messages with only one name).
-"""
 def parse_matchboard_msg(msg):
+    """Parse a message on the matchboard, return the result as the tuple `winner, loser` or `None`
+    if winner and loser can not be determined (e.g. messages with only one name).
+    """
     if len(msg.embeds) == 0:
         return None
 
@@ -115,14 +112,11 @@ async def get_game_results(matchboard):
     return loaded_results + fetched_game_results
 
 
-"""
-    game_results_writer(file)
-
-Return a `Writer` for game results for a given file.
-
-Using this ensure consistent formatting of the results.
-"""
 def game_results_writer(file):
+    """Return a `Writer` for game results for a given file.
+
+    Using this ensure consistent formatting of the results.
+    """
     return csv.DictWriter(file, fieldnames=["timestamp", "id", "winner", "loser"])
 
 
