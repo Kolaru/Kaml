@@ -3,5 +3,6 @@
 /__pycache__
 /rankings
 
+restart_chan.txt
 tokens.json
 *.csv

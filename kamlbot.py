@@ -155,17 +155,29 @@ class Kamlbot(Bot):
                                  msg_id in tokens["leaderboard_msg_ids"]]
 
         await self.change_presence(status=discord.Status.online)
-        await self.debug("The Kamlbot is logged in.")
-        logger.info(f"Kamlbot has logged in.")
-        start_time = time.time()
 
-        await self.load_all()
+        if "-restart" in sys.argv:
+            with open("restart_chan.txt", "r") as file:
+                chan_id = int(file.readline())
+                chan = self.get_channel(chan_id)
 
-        dt = time.time() - start_time
+            await chan.send("I'm reborn! Initialization now begins.")
 
-        logger.info(f"Initialization finished in {dt:0.2f} s.")
-        await self.debug(f"Initialization finished in {dt:0.2f} s.")
-        self.is_ready = True
+        else:
+            chan = self.debug_chan
+            await chan.send("The Kamlbot is logged in.")
+
+        async with chan.typing():
+            logger.info(f"Kamlbot has logged in.")
+            start_time = time.time()
+
+            await self.load_all()
+
+            dt = time.time() - start_time
+
+            logger.info(f"Initialization finished in {dt:0.2f} s.")
+            await chan.send(f"Initialization finished in {dt:0.2f} s.")
+            self.is_ready = True
 
     @property
     def players(self):
@@ -459,8 +471,12 @@ async def reload(cmd):
 """)
 @commands.has_role(ROLENAME)
 async def restart(cmd):
-    await cmd.channel.send("Restarting the bot.")
-    os.execv(sys.executable, ["python", "kamlbot.py"])
+    await cmd.channel.send("I will now die and be replaced.")
+
+    with open("restart_chan.txt", "w") as file:
+        file.write(str(cmd.channel.id))
+
+    os.execv(sys.executable, ["python", "kamlbot.py", "-restart"])
 
 
 @kamlbot.command()
