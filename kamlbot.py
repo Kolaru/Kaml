@@ -1,7 +1,9 @@
 import discord
 import io
 import numpy as np
+import os
 import time
+import sys
 
 from datetime import datetime
 
@@ -447,11 +449,18 @@ async def rank(cmd, player_name=None, *parts):
 async def reload(cmd):
     async with cmd.typing():
         t = time.time()
-        kamlbot.maintenance_mode = True
         await kamlbot.load_all()
-        kamlbot.maintenance_mode = False
         dt = time.time() - t
         await cmd.channel.send(f"Everything was reloaded (took {dt:.2f} s).")
+
+
+@kamlbot.command(help="""
+[ADMIN] Restart the bot.
+""")
+@commands.has_role(ROLENAME)
+async def restart(cmd):
+    await cmd.channel.send("Restarting the bot.")
+    os.execv(sys.executable, ["python", "kamlbot.py"])
 
 
 @kamlbot.command()
@@ -527,6 +536,6 @@ async def stop(cmd):
 @commands.has_role(ROLENAME)
 async def test(cmd):
     logger.info("The Kamlbot is being tested.")
-    await cmd.channel.send("The Kamlbot is working.")
+    await cmd.channel.send("The Kamlbot is working, working hard even.")
 
 kamlbot.run(tokens["bot_token"])
