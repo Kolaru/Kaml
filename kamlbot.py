@@ -1,7 +1,9 @@
 import discord
 import io
 import numpy as np
+import os
 import time
+import sys
 
 from datetime import datetime
 
@@ -153,17 +155,29 @@ class Kamlbot(Bot):
                                  msg_id in tokens["leaderboard_msg_ids"]]
 
         await self.change_presence(status=discord.Status.online)
-        await self.debug("The Kamlbot is logged in.")
-        logger.info(f"Kamlbot has logged in.")
-        start_time = time.time()
 
-        await self.load_all()
+        if "-restart" in sys.argv:
+            with open("restart_chan.txt", "r") as file:
+                chan_id = int(file.readline())
+                chan = self.get_channel(chan_id)
 
-        dt = time.time() - start_time
+            await chan.send("I'm reborn! Initialization now begins.")
 
-        logger.info(f"Initialization finished in {dt:0.2f} s.")
-        await self.debug(f"Initialization finished in {dt:0.2f} s.")
-        self.is_ready = True
+        else:
+            chan = self.debug_chan
+            await chan.send("The Kamlbot is logged in.")
+
+        async with chan.typing():
+            logger.info(f"Kamlbot has logged in.")
+            start_time = time.time()
+
+            await self.load_all()
+
+            dt = time.time() - start_time
+
+            logger.info(f"Initialization finished in {dt:0.2f} s.")
+            await chan.send(f"Initialization finished in {dt:0.2f} s.")
+            self.is_ready = True
 
     @property
     def players(self):
@@ -201,8 +215,6 @@ class Kamlbot(Bot):
 
 kamlbot = Kamlbot(command_prefix="!")
 
-JET_ALIASES = ["#LegalizeEdgyMemes", "JetEriksen", "KSR JetEriksen"]
-
 @kamlbot.check
 async def check_available(cmd):
     if kamlbot.is_ready:
@@ -220,10 +232,6 @@ async def alias(cmd, *names):
     user = cmd.author
 
     logger.info("{0.mention} claims names {1}".format(user, names))
-
-    if user.id == tokens["jet_id"] and any([name not in JET_ALIASES for name in names]):
-        await msg_builder.send(cmd.channel, "anti_jet_meme")
-        return
     
     player = await kamlbot.get_player(cmd=cmd)
 
@@ -447,11 +455,22 @@ async def rank(cmd, player_name=None, *parts):
 async def reload(cmd):
     async with cmd.typing():
         t = time.time()
-        kamlbot.maintenance_mode = True
         await kamlbot.load_all()
-        kamlbot.maintenance_mode = False
         dt = time.time() - t
         await cmd.channel.send(f"Everything was reloaded (took {dt:.2f} s).")
+
+
+@kamlbot.command(help="""
+[ADMIN] Restart the bot.
+""")
+@commands.has_role(ROLENAME)
+async def restart(cmd):
+    await cmd.channel.send("I will now die and be replaced.")
+
+    with open("restart_chan.txt", "w") as file:
+        file.write(str(cmd.channel.id))
+
+    os.execv(sys.executable, ["python", "kamlbot.py", "-restart"])
 
 
 @kamlbot.command()
@@ -527,6 +546,6 @@ async def stop(cmd):
 @commands.has_role(ROLENAME)
 async def test(cmd):
     logger.info("The Kamlbot is being tested.")
-    await cmd.channel.send("The Kamlbot is working.")
+    await cmd.channel.send("The Kamlbot is working, working hard even.")
 
 kamlbot.run(tokens["bot_token"])
