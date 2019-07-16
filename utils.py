@@ -89,3 +89,15 @@ class ChainedDict:
 
     def __getitem__(self, key):
         return self.mid_to_value[self.key_to_mid[key]]
+
+
+def partition(N, parts=2):
+    """Return all partition of integer `N` in a fixed number of parts."""
+
+    if parts == 1:
+        yield (N,)
+    else:
+        for i in range(1, N):
+            for p in partition(N - i, parts - 1):
+                yield (i,) + p
+                
