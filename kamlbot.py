@@ -21,7 +21,7 @@ from messages import msg_builder
 from player import PlayerManager, PlayerNotFoundError
 from ranking import Ranking
 from save_and_load import load_ranking_config, load_tokens, parse_matchboard_msg
-from utils import connect, locking, logger
+from utils import connect, locking, logger, partition
 
 
 tokens = load_tokens()
@@ -60,17 +60,59 @@ class Kamlbot(Bot):
         except discord.errors.NotFound:
             logger.warning("Leaderboard message not found for edition.")
 
-    async def get_player(self, player_name=None, cmd=None):
-        name_is_discord_id = False
+    def find_names(self, nameparts, n=1):
+        k = len(nameparts)
 
-        if player_name is None:
+        if k == n:
+            return nameparts
+        
+        for ps in partition(k, n):
+            s = 0
+            allgood = True
+            names = []
+
+            for p in ps:
+                name = " ".join(nameparts[s:s+p])
+                print(s, p, name)
+                s += p
+                names.append(name)
+
+                if not self.player_manager.alias_exists(name):
+                    allgood = False
+                    break
+            
+            if allgood:
+                return names
+        
+        return None
+
+    async def get_players(self, nameparts, cmd=None, n=1):
+        if len(nameparts) == 0:
             if cmd is None:
-                logger.error("get_player called without player_name nor command")
-                return None
+                logger.error("get_players called without any name nor command")
+                await msg_builder.send(cmd.channel,
+                        "generic_error")
 
-            player_name = cmd.author.id
-            name_is_discord_id = True
+                raise PlayerNotFoundError()
+        
+            return (await self.get_player(cmd.author.id, cmd=cmd, name_is_discord_id=True),)
+    
+        if len(nameparts) == n:
+            return [await self.get_player(name, cmd=cmd) for name in nameparts]
 
+        names = self.find_names(nameparts, n=n)
+        if names is None:
+            await msg_builder.send(cmd.channel,
+                    "unable_to_build_alias",
+                    n=n)
+
+            raise PlayerNotFoundError(" ".join(nameparts))
+        else:
+            return [await self.get_player(name, cmd=cmd) for name in names]
+
+    async def get_player(self, player_name=None, cmd=None,
+                name_is_discord_id=False,
+                errormsg=True):
         try:
             player = self.player_manager.get_player(player_name,
                             test_mention=True,
@@ -79,19 +121,17 @@ class Kamlbot(Bot):
             return player
 
         except PlayerNotFoundError:
-            if cmd is not None:
+            if errormsg and cmd is not None:
                 if name_is_discord_id:
                     await msg_builder.send(cmd.channel,
-                                            "no_alias_error",
-                                            user=cmd.author)
-                    return None
-                
-                await msg_builder.send(cmd.channel,
-                                    "player_not_found_error",
-                                    player_name=player_name)
-                return None
+                            "no_alias_error",
+                            user=cmd.author)
+                else:
+                    await msg_builder.send(cmd.channel,
+                            "player_not_found_error",
+                            player_name=player_name)
 
-            return None
+            raise  # Rethrow the error
 
     async def load_all(self):
         """Load everything from files and fetch missing games from the
@@ -229,14 +269,22 @@ Associate in game name(s) to the user's discord profile.
 Multiple names can be given at once.
 """)
 async def alias(cmd, *names):
+    await cmd.channel.send("Alias command is sadly currently broken. However, <@314190533301895178> can make the association manually.")
+    return
     user = cmd.author
 
     logger.info("{0.mention} claims names {1}".format(user, names))
     
-    player = await kamlbot.get_player(cmd=cmd)
-
-    if player is None:
-        return
+    try:
+        player = await kamlbot.get_player(player_name=user.id, cmd=cmd, 
+                            name_is_discord_id=True,
+                            errormsg=False)
+    except PlayerNotFoundError:
+        if len(names) > 0:
+            player = kamlbot.player_manager.add_player(player_id=user.id, aliases=[])
+        else:
+            await msg_builder.send(cmd.channel, "no_alias_error", user=user)
+            return
 
     if len(names) == 0:
         if len(player.aliases) > 0:
@@ -264,12 +312,9 @@ async def alias(cmd, *names):
     added, not_found = kamlbot.player_manager.associate_aliases(user.id, names)
     await kamlbot.update_mentions()
 
-    if len(player.aliases) > 0:
-        msg = msg_builder.build("associated_aliases",
-                                player=player,
-                                aliases="\n".join(player.aliases))
-    else:
-        msg = msg_builder.build("no_alias_error", user=user)
+    msg = msg_builder.build("associated_aliases",
+                            player=player,
+                            aliases="\n".join(player.aliases))
 
     if len(not_found) > 0:
         msg += msg_builder.build("not_found_aliases",
@@ -281,10 +326,10 @@ async def alias(cmd, *names):
 @kamlbot.command(help="""
 Get a lot of info on a player.
 """)
-async def allinfo(cmd, player_name=None):
-    player = await kamlbot.get_player(player_name, cmd=cmd)
-
-    if player is None:
+async def allinfo(cmd, *nameparts):
+    try:
+        player, = await kamlbot.get_players(nameparts, cmd=cmd, n=1)
+    except PlayerNotFoundError:
         return
 
     fig, axes = plt.subplots(2, 2, sharex="col", sharey="row")
@@ -333,11 +378,10 @@ async def allinfo(cmd, player_name=None):
 @kamlbot.command(help="""
 Compare two players, including the probability of win estimated by the Kamlbot.
 """)
-async def compare(cmd, p1_name, p2_name):
-    p1 = await kamlbot.get_player(p1_name, cmd=cmd)
-    p2 = await kamlbot.get_player(p2_name, cmd=cmd)
-
-    if p1 is None or p2 is None:
+async def compare(cmd, *nameparts):
+    try:
+        p1, p2 = await kamlbot.get_players(nameparts, cmd=cmd, n=2)
+    except PlayerNotFoundError:
         return
 
     msg = msg_builder.build("player_rank",
@@ -430,23 +474,21 @@ async def msg(cmd, n=1):
     for k in range(n):
         await cmd.channel.send(f"Dummy message {k+1}/{n}")
 
-
 @kamlbot.command(help="""
 Return the rank and some additional information about the player.
 
 If used without argument, return the rank of the player associated with the
 discord profile of the user.
 """)
-async def rank(cmd, player_name=None, *parts):
-    player = await kamlbot.get_player(player_name, cmd=cmd)
-
-    if player is None:
+async def rank(cmd, *nameparts):
+    try:
+        player, = await kamlbot.get_players(nameparts, cmd=cmd, n=1)
+    except PlayerNotFoundError:
         return
 
     await msg_builder.send(cmd.channel,
-                           "player_rank",
-                           player=player)
-
+        "player_rank",
+        player=player)
 
 @kamlbot.command(help="""
 [ADMIN] Reload everything from files.
@@ -481,7 +523,7 @@ async def save(cmd):
 Search for a player. Optional argument `n` is the maximal number of name returned.
 """)
 async def search(cmd, name, n=5):
-    matches = get_close_matches(name, kamlbot.player_manager.aliases,
+    matches = get_close_matches(name, kamlbot.player_manager.get_playerses,
                                 n=n)
     
     msg = "\n".join(matches)

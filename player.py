@@ -36,7 +36,10 @@ class Player:
             self.aliases = set(aliases)
             self.id = player_id
             self.claimed = True
-            self.mention = list(aliases)[0]
+            if len(aliases) == 0:
+                self.mention = "Some discord person"
+            else:
+                self.mention = list(aliases)[0]
         
         self.rating = trueskill.Rating()
         self.states = OrderedDict()
@@ -104,10 +107,13 @@ class Player:
 
 
 class PlayerNotFoundError(Exception):
-    def __init__(self, player_id):
+    def __init__(self, player_id=None):
         self.player_id = player_id
     
     def __str__(self):
+        if self.player_id is None:
+            return "Tried to find player without giving an identifier."
+            
         return f"No player found with identifier {self.player_id}."
 
 
@@ -164,16 +170,13 @@ class PlayerManager:
     def associate_aliases(self, player_id, aliases):
         # Assume that none of the aliases is already taken
         # Assume len(aliases) > 0
+        # Assume a player with the given id exists
 
         found = [alias for alias in aliases if self.alias_exists(alias)]
         not_found = [alias for alias in aliases if not self.alias_exists(alias)]
 
-        if not self.id_exists(player_id):
-            self.add_player(player_id=player_id,
-                            aliases=aliases)
-        else:
-            player = self.id_to_player[player_id]
-            player.aliases.update(aliases)
+        player = self.id_to_player[player_id]
+        player.aliases.update(aliases)
             
         for alias in found:
             past_id = self.alias_to_id[alias]
