@@ -153,15 +153,6 @@ def load_tokens():
     return d
 
 
-def save_aliases(id_to_aliases):
-    logger.info("Aliases file overriden.")
-
-    with open("aliases.csv", "w", encoding="utf-8") as file:
-        for discord_id, aliases in id_to_aliases.items():
-            aliases = [clean_name(aliase) for aliase in aliases]
-            file.write('{},{}\n'.format(discord_id, ','.join(aliases)))
-
-
 @locking("raw_results.csv")
 async def save_games(games):
     with open("raw_results.csv", "a",

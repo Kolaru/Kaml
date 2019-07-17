@@ -25,21 +25,15 @@ class Player:
     rank = None
 
     # TODO Better safeguard for invalid arg combinations
-    def __init__(self, player_id=None, aliases=None, name=None):
+    def __init__(self, player_id=None, name=None):
         if name is not None:
-            self.aliases = set([name])
             self.id = Player._id_counter
             self.mention = name
-            self.claimed = False
             Player._id_counter += 1
         else:
             self.aliases = set(aliases)
             self.id = player_id
-            self.claimed = True
-            if len(aliases) == 0:
-                self.mention = "Some discord person"
-            else:
-                self.mention = list(aliases)[0]
+            self.mention = "Some discord person"
         
         self.rating = trueskill.Rating()
         self.states = OrderedDict()
@@ -116,27 +110,13 @@ class PlayerNotFoundError(Exception):
             
         return f"No player found with identifier {self.player_id}."
 
-
 class PlayerManager:
-    # Core dicts
-    alias_to_id = None
     id_to_player = None
-
-    def __init__(self):
-        self.alias_to_id = {}
-        self.id_to_player = {}
+    alias_manager = None
 
     @property
     def alias_to_player(self):
-        return ChainedDict(self.alias_to_id, self.id_to_player)
-
-    @property
-    def aliases(self):
-        return self.get_aliases()
-    
-    @property
-    def claimed_aliases(self):
-        return self.get_aliases(filter=lambda p: p.claimed)
+        return ChainedDict(self.alias_manager, self.id_to_player)
     
     @property
     def claimed_players(self):
@@ -145,61 +125,10 @@ class PlayerManager:
     @property
     def players(self):
         return list(self.id_to_player.values())
-    
-    @property
-    def id_to_claimed_aliases(self):
-        return {p.id:p.aliases for p in self.players if p.claimed}
-
-    def add_player(self, name=None,
-                   player_id=None,
-                   aliases=None):
-        if name is not None:
-            player = Player(name=name)
-        else:
-            player = Player(player_id=player_id, aliases=aliases)
-
-        player_id = player.id
-        self.id_to_player[player_id] = player
-        self.alias_to_id[name] = player_id
-
-        return player
-    
-    def alias_exists(self, alias):
-        return alias in self.alias_to_id
-
-    def associate_aliases(self, player_id, aliases):
-        # Assume that none of the aliases is already taken
-        # Assume len(aliases) > 0
-        # Assume a player with the given id exists
-
-        found = [alias for alias in aliases if self.alias_exists(alias)]
-        not_found = [alias for alias in aliases if not self.alias_exists(alias)]
-
-        player = self.id_to_player[player_id]
-        player.aliases.update(aliases)
-            
-        for alias in found:
-            past_id = self.alias_to_id[alias]
-            del self.id_to_player[past_id]
-        
-        for alias in aliases:
-            self.alias_to_id[alias] = player_id
-            
-        save_aliases(self.id_to_claimed_aliases)
-
-        return found, not_found
-
-    def extract_claims(self, aliases):
-        return {alias:self.alias_to_player[alias] for alias in aliases
-                if self.is_claimed(alias)}
-
-    def get_aliases(self, filter=lambda p: True):
-        return set(chain.from_iterable([p.aliases for p in self.players
-                                        if filter(p)]))
 
     def get_player(self, alias,
-                   test_mention=False,
-                   create_missing=True):
+                test_mention=False,
+                create_missing=True):
         player_id = None
 
         t = time.time()
@@ -231,42 +160,14 @@ class PlayerManager:
         
         return player
 
-    def id_exists(self, player_id):
-        return player_id in self.id_to_player
-    
-    def is_claimed(self, alias):
-        return alias in self.claimed_aliases
+    def add_player(self, name=None,
+                   player_id=None,
+                   aliases=None):
+        
+        player = Player(name=name, player_id=player_id, aliases=aliases)
 
-    def load_data(self):
-        logger.info("Building PlayerManager.")
-        logger.info("PlayerManager - Fetching alias tables.")
+        player_id = player.id
+        self.id_to_player[player_id] = player
+        self.alias_to_id[name] = player_id
 
-        self.alias_to_id = dict()
-        self.id_to_aliases = dict()
-
-        try:
-            logger.info("Fetching saved alias table.")
-            with open("aliases.csv", "r", encoding="utf-8") as file:
-                for line in file:
-                    player_id, *aliases = line.split(",")
-                    player_id = int(player_id)
-
-                    if isinstance(aliases, str):
-                        aliases = [aliases]
-
-                    aliases = [alias.strip() for alias in aliases]
-                    self.id_to_aliases[player_id] = set(aliases)
-
-                    for alias in aliases:
-                        self.alias_to_id[alias] = player_id
-
-        except FileNotFoundError:
-            logger.warning("No saved alias table found.")
-
-        self.id_to_player = dict()
-
-        logger.info(f"PlayerManager - Constructing {len(self.id_to_aliases)} player objects.")
-
-        for player_id, aliases in self.id_to_aliases.items():
-            self.id_to_player[player_id] = Player(player_id=player_id,
-                                                  aliases=aliases)
+        return player
