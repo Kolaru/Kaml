@@ -1,4 +1,5 @@
 import discord
+import git
 import io
 import numpy as np
 import os
@@ -505,7 +506,15 @@ async def reload(cmd):
 [ADMIN] Restart the bot.
 """)
 @commands.has_role(ROLENAME)
-async def restart(cmd):
+async def restart(cmd, param=None):
+    if param is not None:
+        if param == "pull":
+            await cmd.channel.send("Pulling changes from GitHub.")
+            repo = git.Repo(os.getcwd())
+            repo.remotes.origin.pull()
+        else:
+            await cmd.channel.send(f"Unknown parameter `{param}`.")
+            
     await cmd.channel.send("I will now die and be replaced.")
 
     with open("restart_chan.txt", "w") as file:
@@ -515,6 +524,7 @@ async def restart(cmd):
 
 
 @kamlbot.command()
+@commands.has_role(ROLENAME)
 async def save(cmd):
     kamlbot.ranking.save()
 
@@ -527,47 +537,6 @@ async def search(cmd, name, n=5):
     
     msg = "\n".join(matches)
     await cmd.channel.send(f"```\n{msg}\n```")
-
-
-@kamlbot.command()
-async def stats(cmd):
-    nbins = 5
-    minscore = -5
-    maxscore = 35
-    bin_width = (maxscore - minscore)/nbins
-    score_bins = np.linspace(minscore, maxscore, nbins)
-
-    week = 7*24*60*60
-    mintime = 1513271300
-    maxtime = time.time()
-    temp = np.arange(mintime, maxtime, week)
-    time_bins = np.zeros(len(temp)+1)
-    time_bins[:-1] = temp
-    time_bins[-1] = maxtime
-
-    weekly_scores = [[] for k in range(len(time_bins) - 1)]
-
-    for p in kamlbot.ranking.players:
-        for timestamp, state in p.states.items():
-            for k, t in enumerate(time_bins):
-                if timestamp < t:
-                    weekly_scores[k-1].append(state.score)
-                    break
-    
-    weekly_hist = []
-    for weekly_score in weekly_scores:
-        hist, _ = np.histogram(weekly_score, score_bins, density=True)
-        weekly_hist.append(hist)
-
-    quantiles = np.transpose(weekly_hist)
-    cumulative = np.zeros(len(weekly_hist))
-
-    for quant in quantiles:
-        cumulative += quant*bin_width
-        plt.plot(cumulative)
-    
-    plt.show()
-
 
 @kamlbot.command(help="""
 [Admin] Stop the bot.
