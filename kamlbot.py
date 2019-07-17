@@ -507,7 +507,7 @@ async def reload(cmd):
 """)
 @commands.has_role(ROLENAME)
 async def restart(cmd, param=None):
-    if is not None:
+    if param is not None:
         if param == "pull":
             await cmd.channel.send("Pulling changes from GitHub.")
             repo = git.Repo(os.getcwd())
