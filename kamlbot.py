@@ -1,4 +1,5 @@
 import discord
+import git
 import io
 import numpy as np
 import os
@@ -505,7 +506,15 @@ async def reload(cmd):
 [ADMIN] Restart the bot.
 """)
 @commands.has_role(ROLENAME)
-async def restart(cmd):
+async def restart(cmd, param=None):
+    if is not None:
+        if param == "pull":
+            await cmd.channel.send("Pulling changes from GitHub.")
+            repo = git.Repo(os.getcwd())
+            repo.remotes.origin.pull()
+        else:
+            await cmd.channel.send(f"Unknown parameter `{param}`.")
+            
     await cmd.channel.send("I will now die and be replaced.")
 
     with open("restart_chan.txt", "w") as file:
