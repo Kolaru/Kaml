@@ -73,7 +73,6 @@ class Kamlbot(Bot):
 
             for p in ps:
                 name = " ".join(nameparts[s:s+p])
-                print(s, p, name)
                 s += p
                 names.append(name)
 
@@ -523,7 +522,7 @@ async def save(cmd):
 Search for a player. Optional argument `n` is the maximal number of name returned.
 """)
 async def search(cmd, name, n=5):
-    matches = get_close_matches(name, kamlbot.player_manager.get_playerses,
+    matches = get_close_matches(name, kamlbot.player_manager.aliases,
                                 n=n)
     
     msg = "\n".join(matches)
