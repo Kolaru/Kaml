@@ -18,6 +18,7 @@ from itertools import chain
 
 from matplotlib import pyplot as plt
 
+from alias import AliasManager
 from messages import msg_builder
 from player import PlayerManager, PlayerNotFoundError
 from ranking import Ranking
@@ -38,7 +39,7 @@ class Kamlbot(Bot):
         connect("ranking_updated", self.edit_leaderboard)
         connect("game_registered", self.send_game_result)
 
-        self.player_manager = None
+        self.alias_manager = None
         self.ranking = None
         self.is_ready = False  # Determine if the bot is ready to process commands
 
@@ -92,7 +93,7 @@ class Kamlbot(Bot):
                 s += p
                 names.append(name)
 
-                if not self.player_manager.alias_exists(name):
+                if not self.alias_manager.alias_exists(name):
                     allgood = False
                     break
             
@@ -129,7 +130,7 @@ class Kamlbot(Bot):
                 name_is_discord_id=False,
                 errormsg=True):
         try:
-            player = self.player_manager.get_player(player_name,
+            player = self.alias_manager.get_player(player_name,
                             test_mention=True,
                             create_missing=False)
             
@@ -155,12 +156,12 @@ class Kamlbot(Bot):
         Erase the current state of the Kamlbot.
         """
         msg_builder.reload()
-        self.player_manager = PlayerManager()
-        self.player_manager.load_data()
+        self.alias_manager = AliasManager()
+        self.alias_manager.load_data()
         await self.update_mentions()
 
         ranking_config = load_ranking_config("base")
-        self.ranking = Ranking(self.player_manager,
+        self.ranking = Ranking(self.alias_manager,
                                **ranking_config)
 
         await self.ranking.fetch_data(self.matchboard)
@@ -183,10 +184,10 @@ class Kamlbot(Bot):
             await self.process_commands(msg)
 
     # Called when the Bot has finished his initialization. May be called
-    # multiple times.
+    # multiple times (I have no idea why though)
     async def on_ready(self):
-        # If the player_manager is set, it means this has already run at least once.
-        if self.player_manager is not None:
+        # If the aliasmanager is set, it means this has already run at least once.
+        if self.alias_manager is not None:
             print("Too much on_ready")
             return
 
@@ -234,10 +235,6 @@ class Kamlbot(Bot):
             await chan.send(f"Initialization finished in {dt:0.2f} s.")
             self.is_ready = True
 
-    @property
-    def players(self):
-        return self.player_manager.players
-
     async def send_game_result(self, change):
         """Create a new message in the KAML matchboard."""
         msg = msg_builder.build("game_result_description",
@@ -253,19 +250,16 @@ class Kamlbot(Bot):
         embed.set_footer(text="")
         await self.kamlboard.send(embed=embed)
 
-    @locking("mentions")
-    async def update_mentions(self, player_manager=None):
+    @locking("display_names")
+    async def update_display_names(self):
         """Update the string used to identify players for all players.
 
         Currently fetch the server nickname of every registered players.
         """
-        if player_manager is None:
-            player_manager = self.player_manager
 
-        for player in player_manager.claimed_players:
-            user = await self.fetch_user(player.id)
-            player.mention = user.display_name
-            player_manager.alias_to_id[player.mention] = player.id
+        for player_id in self.alias_manager.claimed_ids:
+            user = await self.fetch_user(player_id)
+            self.alias_manager.set_display_name(player_id, user.display_name)
             
 
 kamlbot = Kamlbot(command_prefix="!")
@@ -296,7 +290,7 @@ async def alias(cmd, *names):
                             errormsg=False)
     except PlayerNotFoundError:
         if len(names) > 0:
-            player = kamlbot.player_manager.add_player(player_id=user.id, aliases=[])
+            player = kamlbot.alias_manager.add_player(player_id=user.id, aliases=[])
         else:
             await msg_builder.send(cmd.channel, "no_alias_error", user=user)
             return
@@ -312,7 +306,7 @@ async def alias(cmd, *names):
         await cmd.channel.send(msg)
         return
     
-    taken = kamlbot.player_manager.extract_claims(names)
+    taken = kamlbot.alias_manager.extract_claims(names)
 
     if len(taken) > 0:
         taken_list = [msg_builder.build("taken_alias",
@@ -324,7 +318,7 @@ async def alias(cmd, *names):
                                taken_aliases="\n".join(taken_list))
         return
 
-    added, not_found = kamlbot.player_manager.associate_aliases(user.id, names)
+    added, not_found = kamlbot.alias_manager.associate_aliases(user.id, names)
     await kamlbot.update_mentions()
 
     msg = msg_builder.build("associated_aliases",
@@ -429,10 +423,10 @@ async def compare(cmd, *nameparts):
 async def exp_ranking(cmd, mu, sigma, beta, tau):
     t = time.time()
     async with cmd.typing():
-        player_manager = PlayerManager()
-        await player_manager.load_data()
-        await kamlbot.update_mentions(player_manager=player_manager)
-        kamlbot.experimental_ranking = Ranking(player_manager,
+        alias_manager = PlayerManager()
+        await alias_manager.load_data()
+        await kamlbot.update_mentions(alias_manager=alias_manager)
+        kamlbot.experimental_ranking = Ranking(alias_manager,
                                                mu=eval(mu),
                                                sigma=eval(sigma),
                                                beta=eval(beta),
@@ -547,7 +541,7 @@ async def save(cmd):
 Search for a player. Optional argument `n` is the maximal number of name returned.
 """)
 async def search(cmd, name, n=5):
-    matches = get_close_matches(name, kamlbot.player_manager.aliases,
+    matches = get_close_matches(name, kamlbot.alias_manager.get_playerses,
                                 n=n)
     
     msg = "\n".join(matches)
