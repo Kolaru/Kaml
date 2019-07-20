@@ -1,7 +1,6 @@
 import numpy as np
 import os
 import time
-import trueskill
 
 from collections import namedtuple, OrderedDict
 from itertools import chain
@@ -10,94 +9,66 @@ from random import randint, sample
 from random import random as rand
 from scipy.stats import norm as Gaussian
 
-from save_and_load import parse_mention_to_id, save_aliases
 from utils import locking, logger
 from utils import ChainedDict
 
 
-PlayerState = namedtuple("PlayerState", ["rank", "mu", "sigma", "score"])
-
-
 class Player:
-    _id_counter = 0
     wins = 0
     losses = 0
     rank = None
 
-    # TODO Better safeguard for invalid arg combinations
-    def __init__(self, player_id=None, name=None):
-        if name is not None:
-            self.id = Player._id_counter
-            self.mention = name
-            Player._id_counter += 1
-        else:
-            self.aliases = set(aliases)
-            self.id = player_id
-            self.mention = "Some discord person"
-        
-        self.rating = trueskill.Rating()
+    def __init__(self, player_identity, initial_state):
+        self.identity = player_identity
         self.states = OrderedDict()
+        self.state = initial_state
     
-    def __hash__(self):
-        return self.id
-            
     def __str__(self):
-        return f"Player {self.mention} (mu = {self.mu}, sigma = {self.sigma})"
+        return f"Player {self.identity.display_name} ({self.current_state})"
+
+    def asdict(self):
+        return dict(
+            states={t:s.asdict() for t, s in self.states.items()}
+        )
 
     @property
-    def mu(self):
-        return self.rating.mu
-    
+    def display_name(self):
+        return self.identity.display_name
+
+    @property
+    def display_rank(self):
+        return self.rank + 1
+
     @property
     def ranks(self):
-        return np.array([s.rank for s in self.states.values()] + [self.rank])
+        return np.array([s.rank for s in self.states.values()])
 
     @property
     def score(self):
-        return self.mu - 3*self.sigma
+        return self.current_state.score
     
     @property
     def scores(self):
-        return np.array([s.score for s in self.states.values()] + [self.score])
-    
-    @property
-    def sigma(self):
-        return self.rating.sigma
+        return np.array([s.score for s in self.states.values()])
 
     @property
     def times(self):
         return np.array(list(self.states.keys()) + [time.time()])
-    
+
     @property
     def total_games(self):
         return self.wins + self.losses
-
-    @property
-    def variance(self):
-        return self.sigma**2
     
+    def update_state(self, new_state, timestamp=None):
+        if timestamp is None:
+            timestamp = time.time()
+
+        self.states[timestamp] = self.current_state
+        self.current_state = new_state
+
     @property
     def win_ratio(self):
         return self.wins/self.total_games
-    
-    def asdict(self):
-        return dict(
-            rank=self.rank,
-            id=self.id,
-            aliases=list(self.aliases),
-            mention=self.mention,
-            claimed=self.claimed,
-            mu=self.mu,
-            sigma=self.sigma,
-            score=self.score,
-            states={t:s._asdict() for t, s in self.states.items()}
-        )
-    
-    def save_state(self, timestamp, rank):
-        self.states[float(timestamp)] = PlayerState(rank=rank,
-                                             mu=self.mu,
-                                             sigma=self.sigma,
-                                             score=self.score)
 
 
 class PlayerNotFoundError(Exception):
@@ -109,6 +80,7 @@ class PlayerNotFoundError(Exception):
             return "Tried to find player without giving an identifier."
             
         return f"No player found with identifier {self.player_id}."
+
 
 class PlayerManager:
     id_to_player = None
