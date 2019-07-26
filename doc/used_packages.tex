@@ -1,0 +1,60 @@
+% Encoding
+\usepackage[utf8]{inputenc} % Required for inputting international characters
+\usepackage[T1]{fontenc} % Output font encoding for international characters
+
+% Bilbliography
+\usepackage[style=numeric,natbib=true,giveninits=true,sorting=none]{biblatex}
+
+% Document class "MasterDoctoralThesis" internals
+\usepackage[autostyle=true]{csquotes} % Required to generate language-dependent quotes in the bibliography
+\usepackage{import}
+\usepackage{tocbibind}
+
+% Images
+\usepackage{graphicx} % Permet l'insertion d'image (entre autres)
+\usepackage{pict2e} % Pour faire des graphiques
+
+% Tikz and colors
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{tikz}
+	\usetikzlibrary{patterns}
+	\usetikzlibrary{plotmarks}
+	\usetikzlibrary{calc}
+	\usetikzlibrary{shapes}
+	\usetikzlibrary{arrows}
+	\usetikzlibrary{fadings}
+
+% Maths
+\usepackage{amsmath} % Mathematical environnements
+\usepackage{amsfonts} % Mathematical fonts
+\usepackage{amssymb} % Mathematical symbols
+
+% Tables and figures
+\usepackage{array} % For tables
+\usepackage{floatrow} % ??
+\usepackage{subfig} % Subfigure possible
+\usepackage{tabu} % Better tabular
+
+% Misc
+\usepackage[english]{babel}
+\usepackage{verbatim} % Verbatim
+\usepackage{bbm} % Extended blackboard bold symbols
+\usepackage[colorinlistoftodos, obeyFinal]{todonotes}
+\usepackage{xspace} % Trailing space for custom commands
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks,
+    linkcolor={red!50!black},
+    citecolor={blue!50!black},
+    urlcolor={blue!80!black}
+}
+
+% Showlabel
+\usepackage{showlabels}
+
+\renewcommand{\showlabelfont}{\tiny\color{blue}}
+\renewcommand{\showlabelsetlabel}[1]{\colorbox{lightgray}{\showlabelfont #1}}
+
+% Setup
+\floatsetup[figure]{style=plain}
