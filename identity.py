@@ -13,7 +13,7 @@ class AliasTakenError(Exception):
 class Identity:
     """Class used to uniquely identify a player.
     
-    It contains all information concerning the player that are independant
+    Contain all information concerning the player that are independant
     from any ranking.
     """
     discord_id = None
@@ -22,13 +22,13 @@ class Identity:
 
     def __init__(self, discord_id, aliases):
         self.discord_id = discord_id
-        self.aliases = aliases
+        self.aliases = set(aliases)
     
     @property
     def display_name(self):
         if self._display_name is None:
             if len(self.aliases) > 0:
-                return self.aliases[0]
+                return list(self.aliases)[0]
             else:
                 return "???"
         
@@ -90,19 +90,15 @@ class IdentityManager:
 
         for alias in found:
             past_id = self.alias_to_identity[alias]
-            to_delete.append(to_delete)
+            to_delete.append(past_id)
 
-        for alias in aliases:
+        for alias in new_aliases:
             self.alias_to_identity[alias] = identity
         
         self.identities -= set(to_delete)
         self.save_data()
 
         return found, not_found
-
-    def extract_claims(self, aliases):
-        return {alias:self.alias_to_player[alias] for alias in aliases
-                if self.is_claimed(alias)}
     
     def is_claimed(self, alias):
         return alias in self.claimed_aliases
@@ -122,7 +118,7 @@ class IdentityManager:
                         aliases = [aliases]
 
                     aliases = [alias.strip() for alias in aliases]
-                    identity = self.add_identity(discord_id=discord_id, aliases=aliases)
+                    self.add_identity(discord_id=discord_id, aliases=aliases)
 
         except FileNotFoundError:
             logger.warning("No saved alias table found.")
