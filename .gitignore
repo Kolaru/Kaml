@@ -6,3 +6,11 @@
 restart_chan.txt
 tokens.json
 *.csv
+
+*.aux
+*.bcf
+*.log
+*.out
+*.xml
+*.gz
+*.bak
