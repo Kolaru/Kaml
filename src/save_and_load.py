@@ -124,38 +124,37 @@ def game_results_writer(file):
 async def load_game_results():
     try:
         logger.info("Retrieving saved games.")
-        with open("raw_results.csv", "r", encoding="utf-8", newline="") as file:
+        with open("data/raw_results.csv", "r", encoding="utf-8", newline="") as file:
             game_results = list(csv.DictReader(file))
 
-            logger.info( f"{len(game_results)} game results retrieved from save.")
+            logger.info(f"{len(game_results)} game results retrieved from save.")
 
     except FileNotFoundError:
         logger.warning("File `raw_results.csv` not found, creating a new one.")
 
-        with open("raw_results.csv", "w", encoding="utf-8", newline="") as file:
+        with open("data/raw_results.csv", "w", encoding="utf-8", newline="") as file:
             writer = game_results_writer(file)
             writer.writeheader()
             game_results = []
-            last_message = None
-    
+
     return game_results
 
 
 def load_ranking_config(config_name):
-    with open("ranking_config.json", "r", encoding="utf-8") as file:
+    with open("config/ranking_config.json", "r", encoding="utf-8") as file:
         configs = json.load(file)
     return configs[config_name]
 
 
 def load_tokens():
-    with open("tokens.json", "r", encoding="utf-8") as file:
+    with open("config/tokens.json", "r", encoding="utf-8") as file:
         d = json.load(file)
     return d
 
 
 @locking("raw_results.csv")
 async def save_games(games):
-    with open("raw_results.csv", "a",
+    with open("data/raw_results.csv", "a",
               encoding="utf-8", newline="") as file:
         writer = game_results_writer(file)
 
@@ -165,7 +164,7 @@ async def save_games(games):
 
 @locking("raw_results.csv")
 async def save_single_game(game):
-    with open("raw_results.csv", "a",
+    with open("data/raw_results.csv", "a",
               encoding="utf-8", newline="") as file:
         writer = game_results_writer(file)
         writer.writerow(game)

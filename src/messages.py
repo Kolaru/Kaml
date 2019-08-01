@@ -1,5 +1,6 @@
 import json
 
+
 class MessageBuilder:
     messages = {}
 
@@ -11,11 +12,11 @@ class MessageBuilder:
         the key word arguments to format it.
         """
         return self.messages[msg_name].format(**kwargs)
-    
+
     def reload(self):
         """Reload messages definition from file.
         """
-        with open("messages.json", "r", encoding="utf-8") as file:
+        with open("config/messages.json", "r", encoding="utf-8") as file:
             self.messages = json.load(file)
 
     async def send(self, channel, msg_name, **kwargs):
@@ -23,5 +24,6 @@ class MessageBuilder:
         """
         msg = self.build(msg_name, **kwargs)
         await channel.send(msg)
+
 
 msg_builder = MessageBuilder()

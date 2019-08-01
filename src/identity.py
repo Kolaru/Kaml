@@ -109,7 +109,7 @@ class IdentityManager:
 
         try:
             logger.info("Fetching saved alias table.")
-            with open("aliases.csv", "r", encoding="utf-8") as file:
+            with open("data/aliases.csv", "r", encoding="utf-8") as file:
                 for line in file:
                     discord_id, *aliases = line.split(",")
                     discord_id = int(discord_id)
@@ -134,7 +134,7 @@ class IdentityManager:
     def save_data(self):
         logger.info("Aliases file overriden.")
 
-        with open("aliases.csv", "w", encoding="utf-8") as file:
+        with open("data/aliases.csv", "w", encoding="utf-8") as file:
             for discord_id, identity in self.discord_id_to_identity.items():
                 aliases = [clean_name(alias) for alias in identity.aliases]
                 file.write('{},{}\n'.format(discord_id, ','.join(aliases)))
