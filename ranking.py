@@ -1,16 +1,15 @@
 import json
-import numpy as np
 import os
 import time
 import trueskill
 
 from collections import namedtuple, OrderedDict
-from numpy import exp, log, sqrt
-from scipy.optimize import least_squares
+from math import sqrt
 
 from messages import msg_builder
+from player import Player
 from save_and_load import save_games, save_single_game, get_game_results
-from utils import emit_signal, locking, logger
+from utils import emit_signal, logger
 
 MINGAMES = 10
 
@@ -29,12 +28,12 @@ ScoreChange = namedtuple("ScoreChange", ["winner",
                                          "winner_dscore",
                                          "loser_dscore"])
 
+
 class AbstractState:
-    def asidct(self):
-        raise NotImplementedError()
-    
-    @property
-    def rank(self):
+    rank = 0
+
+    """Abstract class for a player relative to a ranking."""
+    def asdict(self):
         raise NotImplementedError()
 
     @property
@@ -43,17 +42,17 @@ class AbstractState:
 
 
 class TrueSkillState(AbstractState):
-    def __init__(self):
-        self.rating = trueskill.Rating()
+    def __init__(self, rating):
+        self.rating = rating
 
     @property
     def mu(self):
         return self.rating.mu
-    
+
     @property
     def score(self):
         return self.mu - 3*self.sigma
-    
+
     @property
     def sigma(self):
         return self.rating.sigma
@@ -68,24 +67,25 @@ class AbstractRanking:
         self.name = name
         self.save_path = f"rankings/{name}.json"
         self.identity_manager = identity_manager
+        self.identity_to_player = dict()
         self.rank_to_player = OrderedDict()
         self.wins = {}
-    
+
     def __getitem__(self, rank):
         return self.rank_to_player[rank]
 
-    @property
-    def players(self):
-        return list(self.rank_to_player.values())
-    
-    def add_player(self, name=None,
-                   discord_id=None,
-                   aliases=None):
-        
-        identity = self.identity_manager.build_identity(name=name,
+    def add_player(self, discord_id=None, aliases=None):
+        identity = self.identity_manager.add_identity(
                             discord_id=discord_id,
                             aliases=aliases)
-    
+
+        player = Player(identity, self.initial_player_state())
+        self.identity_to_player[identity] = player
+
+    def ensure_alias_existence(self, alias):
+        if alias not in self.identity_manager.aliases:
+            self.add_player(aliases=set(alias))
+
     async def fetch_data(self, matchboard):
         logger.info(f"Building {self.name} Ranking")
         logger.info(f"{self.name} Ranking - Fetching game results.")
@@ -97,12 +97,15 @@ class AbstractRanking:
         for g in game_results:
             await self.register_game(g, save=False,
                                      signal_update=False)
-        
+
         await emit_signal("ranking_updated")
-    
-    def get_player(self):
+
+    def get_player_by_alias(self, alias):
         pass  # TODO
-    
+
+    def initial_player_state(self):
+        raise NotImplementedError()
+
     def leaderboard(self, start, stop):
         """Generate the string content of a leaderboard message."""
         # Convert from base 1 indexing for positive ranks
@@ -112,21 +115,28 @@ class AbstractRanking:
         new_content = "\n".join([msg_builder.build("leaderboard_line",
                                                    player=player)
                                  for player in self[start:stop]])
-        
+
         return f"```\n{new_content}\n```"
+
+    @property
+    def players(self):
+        return list(self.rank_to_player.values())
 
     def register_game(self, game, save=True, signal_update=True):
         if game["winner"] == "":
             game["winner"] = None
-        
+
         if game["loser"] == "":
             game["loser"] = None
-            
+
         if game["winner"] is None or game["loser"] is None:
             return None
-            
-        winner = self.identity_manager.get_player(game["winner"])
-        loser = self.get_player(game["loser"])
+
+        self.ensure_alias_existence(game["winner"])
+        self.ensure_alias_existence(game["loser"])
+
+        winner = self.get_player_by_alias(game["winner"])
+        loser = self.get_player_by_alias(game["loser"])
 
         winner_old_rank = winner.rank
         loser_old_rank = loser.rank
@@ -142,7 +152,7 @@ class AbstractRanking:
         winner_old_score = winner.score
         loser_old_score = loser.score
 
-        # TODO update player state here
+        self.update_players(winner, loser)
 
         winner.wins += 1
         loser.losses += 1
@@ -161,16 +171,19 @@ class AbstractRanking:
         if save:
             await save_single_game(game)
             await emit_signal("game_registered", change)
-        
+
         if signal_update:
             await emit_signal("ranking_updated")
 
         return change
 
+    def update_players(self, winner, loser):
+        raise NotImplementedError()
+
     def update_ranks(self, player, dscore):
         if player.total_games < MINGAMES:
             return
-        
+
         if dscore == 0:
             return
         elif dscore < 0:
@@ -184,7 +197,7 @@ class AbstractRanking:
             player.rank = 0
             self.rank_to_player[0] = player
             return
-        
+
         old_rank = player.rank
 
         if old_rank is None:
@@ -194,12 +207,12 @@ class AbstractRanking:
 
         if inc == -1 and old_rank == 0:
             return
-        
+
         if inc == 1 and old_rank == N - 1:
             return
 
         k = old_rank + inc
-                
+
         other = self.rank_to_player[k]
 
         while k > 0 and k < N - 1 and other.score*inc > player.score*inc:
@@ -208,9 +221,9 @@ class AbstractRanking:
 
             k += inc
             other = self.rank_to_player[k]
-        
+
         if other.score*inc > player.score*inc:
-            other.rank  = k - inc
+            other.rank = k - inc
             self.rank_to_player[other.rank] = other
         else:
             k -= inc
@@ -220,19 +233,19 @@ class AbstractRanking:
 
         if k > 0:
             assert player.score <= self.rank_to_player[k - 1].score
-        
+
         if k < N - 1:
             assert player.score >= self.rank_to_player[k + 1].score
-    
+
     def save(self):
         with open(self.save_path, "w", encoding="utf-8") as file:
             json.dump([p.asdict() for p in self.players], file)
 
 
-class TrueSkillRanking:
+class TrueSkillRanking(AbstractRanking):
     def __init__(self, name, identity_manager,
                  mu=25, sigma=25/3, beta=25/6, tau=25/300):
-        
+
         super().__init__(name, identity_manager)
 
         self.ts_env = trueskill.TrueSkill(
@@ -255,11 +268,14 @@ class TrueSkillRanking:
                           win_empirical=100*wins/(wins + losses),
                           win_estimate=100*self.win_estimate(p1, p2))
 
+    def initial_player_state(self):
+        return trueskill.Rating()
+
     def update_players(self, winner, loser):
-        winner.rating, loser.rating = trueskill.rate_1vs1(winner.rating, loser.rating)
+        wrating, lrating = trueskill.rate_1vs1(winner.rating, loser.rating)
 
     def win_estimate(self, p1, p2):
         delta_mu = p1.mu - p2.mu
         sum_sigma2 = p1.sigma**2 + p2.sigma**2
-        denom = sqrt(2 * BETA**2 + sum_sigma2)  # TODO Get beta from the ranking
+        denom = sqrt(2 * BETA**2 + sum_sigma2)  # TODO Get beta from ranking
         return self.ts_env.cdf(delta_mu / denom)
