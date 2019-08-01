@@ -3,9 +3,6 @@ import time
 
 from collections import OrderedDict
 
-from utils import logger
-from utils import ChainedDict
-
 
 class Player:
     """Class representing a player in a given ranking.
@@ -83,66 +80,3 @@ class PlayerNotFoundError(Exception):
             return "Tried to find player without giving an identifier."
 
         return f"No player found with identifier {self.player_id}."
-
-
-class PlayerManager:
-    id_to_player = None
-    alias_manager = None
-
-    @property
-    def alias_to_player(self):
-        return ChainedDict(self.alias_manager, self.id_to_player)
-
-    @property
-    def claimed_players(self):
-        return [p for p in self.players if p.claimed]
-
-    @property
-    def players(self):
-        return list(self.id_to_player.values())
-
-    def get_player(self, alias,
-                   test_mention=False,
-                   create_missing=True):
-        player_id = None
-
-        t = time.time()
-
-        # Check if alias is a player id
-        if isinstance(alias, int):
-            player_id = alias
-            if not self.id_exists(player_id):
-                logger.error(f"No player found with id {player_id}.")
-                raise PlayerNotFoundError(player_id)
-
-            player = self.id_to_player[player_id]
-        else:
-            if test_mention:
-                # Check if alias is a discord mention
-                player_id = parse_mention_to_id(alias)
-
-            if player_id is not None:
-                player = self.id_to_player[player_id]
-            elif not self.alias_exists(alias):
-                if create_missing:
-                    logger.debug(f"New player created with name {alias} in get_player.")
-                    player = self.add_player(name=alias)
-                else:
-                    logger.error(f"No player found with name {player_id}.")
-                    raise PlayerNotFoundError(alias)
-            else:
-                player = self.alias_to_player[alias]
-
-        return player
-
-    def add_player(self, name=None,
-                   player_id=None,
-                   aliases=None):
-
-        player = Player(name=name, player_id=player_id, aliases=aliases)
-
-        player_id = player.id
-        self.id_to_player[player_id] = player
-        self.alias_to_id[name] = player_id
-
-        return player

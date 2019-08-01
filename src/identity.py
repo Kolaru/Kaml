@@ -123,14 +123,6 @@ class IdentityManager:
         except FileNotFoundError:
             logger.warning("No saved alias table found.")
 
-        self.id_to_player = dict()
-
-        logger.info(f"PlayerManager - Constructing {len(self.id_to_aliases)} player objects.")
-
-        for discord_id, aliases in self.id_to_aliases.items():
-            self.id_to_player[discord_id] = Player(discord_id=discord_id,
-                                                  aliases=aliases)
-
     def save_data(self):
         logger.info("Aliases file overriden.")
 

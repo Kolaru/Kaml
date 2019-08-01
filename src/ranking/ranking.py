@@ -5,6 +5,7 @@ from collections import namedtuple, OrderedDict
 from messages import msg_builder
 from player import Player
 from save_and_load import save_single_game, get_game_results
+from utils import ChainedDict
 from utils import emit_signal, logger
 
 MINGAMES = 10
@@ -38,6 +39,9 @@ class AbstractRanking:
         self.rank_to_player = OrderedDict()
         self.wins = {}
 
+        self.alias_to_player = ChainedDict(self.identity_manager,
+                                           self.identity_to_player)
+
     def __getitem__(self, rank):
         return self.rank_to_player[rank]
 
@@ -59,16 +63,14 @@ class AbstractRanking:
 
         game_results = await get_game_results(matchboard)
 
-        logger.info(f"{self.name} Ranking - Registering {len(game_results)} fetched games.")
+        logger.info((f"{self.name} Ranking - Registering {len(game_results)}"
+                    " fetched games."))
 
         for g in game_results:
             await self.register_game(g, save=False,
                                      signal_update=False)
 
         await emit_signal("ranking_updated")
-
-    def get_player_by_alias(self, alias):
-        pass  # TODO
 
     def initial_player_state(self):
         raise NotImplementedError()
@@ -102,8 +104,8 @@ class AbstractRanking:
         self.ensure_alias_existence(game["winner"])
         self.ensure_alias_existence(game["loser"])
 
-        winner = self.get_player_by_alias(game["winner"])
-        loser = self.get_player_by_alias(game["loser"])
+        winner = self.alias_to_player(game["winner"])
+        loser = self.alias_to_player(game["loser"])
 
         winner_old_rank = winner.rank
         loser_old_rank = loser.rank
