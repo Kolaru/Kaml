@@ -4,6 +4,7 @@ import os
 from asyncio import Lock
 from logging.handlers import TimedRotatingFileHandler
 
+
 ## Logging
 
 # Create log directory if it doesn't already exist
@@ -47,14 +48,15 @@ def locking(lock_name):
             async with lock:
                 res = await func(*args, **kwargs)
             return res
-        
+
         return _locked_fn
-    
+
     return _decorator
 
 
 ## Signal
 signal_callbacks = {}  # Dictionary of all signal callbacks.
+
 
 def connect(signal_name, func):
     """Connect the function `func` to a signal.
@@ -64,7 +66,7 @@ def connect(signal_name, func):
     """
     if signal_name not in signal_callbacks:
         signal_callbacks[signal_name] = []
-    
+
     if func not in signal_callbacks[signal_name]:
         signal_callbacks[signal_name].append(func)
 
@@ -100,4 +102,3 @@ def partition(N, parts=2):
         for i in range(1, N):
             for p in partition(N - i, parts - 1):
                 yield (i,) + p
-                
