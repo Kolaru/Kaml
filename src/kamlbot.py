@@ -213,7 +213,7 @@ class Kamlbot(Bot):
         await self.change_presence(status=discord.Status.online)
 
         if "-restart" in sys.argv:
-            with open("restart_chan.txt", "r") as file:
+            with open("config/restart_chan.txt", "r") as file:
                 chan_id = int(file.readline())
                 chan = self.get_channel(chan_id)
 
@@ -243,9 +243,9 @@ class Kamlbot(Bot):
                                 loser=change.loser)
 
         embed = Embed(color=0xf36541,
-                    timestamp=datetime.now(),
-                    title=msg_builder.build("game_result_title"),
-                    description=msg)
+                      timestamp=datetime.now(),
+                      title=msg_builder.build("game_result_title"),
+                      description=msg)
 
         embed.set_footer(text="")
         await self.kamlboard.send(embed=embed)
@@ -518,7 +518,7 @@ async def reload(cmd):
 async def restart(cmd):
     await cmd.channel.send("I will now die and be replaced.")
 
-    with open("restart_chan.txt", "w") as file:
+    with open("config/restart_chan.txt", "w") as file:
         file.write(str(cmd.channel.id))
 
     os.execv(sys.executable, ["python", "kamlbot.py", "-restart"])
