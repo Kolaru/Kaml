@@ -5,14 +5,14 @@ from utils import logger
 class AliasTakenError(Exception):
     def __init__(self, taken):
         self.taken = taken
-    
+
     def __str__(self):
         return f"Aliases {self.taken} are already claimed by other players."
 
 
 class Identity:
     """Class used to uniquely identify a player.
-    
+
     Contain all information concerning the player that are independant
     from any ranking.
     """
@@ -23,7 +23,7 @@ class Identity:
     def __init__(self, discord_id, aliases):
         self.discord_id = discord_id
         self.aliases = set(aliases)
-    
+
     @property
     def display_name(self):
         if self._display_name is None:
@@ -31,10 +31,10 @@ class Identity:
                 return list(self.aliases)[0]
             else:
                 return "???"
-        
+
         else:
             return self._display_name
-    
+
     @property
     def is_claimed(self):
         return self.discord_id is not None
@@ -54,14 +54,14 @@ class IdentityManager:
     @property
     def aliases(self):
         return list(self.alias_to_identity.keys())
-    
+
     def add_identity(self, discord_id=None, aliases=set()):
         identity = Identity(discord_id, aliases)
         self.identities.append(identity)
 
         for alias in aliases:
             self.alias_to_identity[alias] = identity
-        
+
         if discord_id is not None:
             self.claimed_aliases.update(aliases)
             self.claimed_ids.append(identity)
@@ -82,7 +82,7 @@ class IdentityManager:
                 found.append(alias)
             else:
                 not_found.append(alias)
-        
+
         identity = self.to_identity(discord_id)
         identity.update(new_aliases)
         self.claimed_aliases.update(new_aliases)
@@ -94,12 +94,12 @@ class IdentityManager:
 
         for alias in new_aliases:
             self.alias_to_identity[alias] = identity
-        
+
         self.identities -= set(to_delete)
         self.save_data()
 
         return found, not_found
-    
+
     def is_claimed(self, alias):
         return alias in self.claimed_aliases
 
@@ -142,5 +142,5 @@ class IdentityManager:
     def to_identity(self, discord_id):
         if discord_id not in self.discord_id_to_identity:
             self.add_identity(discord_id=discord_id)
-        
+
         return self.discord_id_to_identity[discord_id]
