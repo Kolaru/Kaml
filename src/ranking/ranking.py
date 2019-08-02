@@ -83,7 +83,7 @@ class AbstractRanking:
     def players(self):
         return list(self.rank_to_player.values())
 
-    def register_game(self, game, save=True, signal_update=True):
+    def register_game(self, game, save=True):
         if game["timestamp"] <= self.oldest_timestamp_to_consider:
             return None
 
@@ -124,11 +124,7 @@ class AbstractRanking:
         self.update_ranks(loser, loser_dscore)
 
         if save:
-            await save_single_game(game)
-            await emit_signal("game_registered", change)
-
-        if signal_update:
-            await emit_signal("rankings_updated")
+            save_single_game(game)
 
         return change
 

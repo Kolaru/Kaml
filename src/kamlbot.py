@@ -19,7 +19,7 @@ from identity import IdentityManager, IdentityNotFoundError
 from messages import msg_builder
 from ranking import ranking_types
 from save_and_load import (load_ranking_configs, load_tokens,
-                           parse_matchboard_msg, get_game_results)
+                            parse_matchboard_msg, get_game_results)
 from utils import connect, emit_signal, logger, partition
 
 
@@ -159,7 +159,7 @@ class Kamlbot(Bot):
 
         game_results = await get_game_results(self.matchboard)
         for game in game_results:
-            self.register_game(game, save=False, signal_update=False)
+            await self.register_game(game, save=False, signal_update=False)
 
         await self.update_mentions()
         await emit_signal("rankings_updated")
@@ -229,12 +229,19 @@ class Kamlbot(Bot):
             await chan.send(f"Initialization finished in {dt:0.2f} s.")
             self.is_ready = True
 
-    def register_game(self, game, save=True, signal_update=True):
+    async def register_game(self, game, save=True, signal_update=True):
         if game["winner"] == "" or game["loser"] == "":
             return None
 
-        for ranking in self.rankings.values():
-            ranking.register_game(game, save=save, signal_update=signal_update)
+        for name, ranking in self.rankings.items():
+            change = ranking.register_game(game, save=save,
+                                           signal_update=signal_update)
+
+            if name == "main":
+                await emit_signal("game_registered", change)
+
+        if signal_update:
+            await emit_signal("rankings_updated")
 
     async def send_game_result(self, change):
         """Create a new message in the KAML matchboard."""

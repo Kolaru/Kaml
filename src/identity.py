@@ -35,7 +35,7 @@ class Identity:
         else:
             return self._display_name
 
-    @display_name.setter()
+    @display_name.setter
     def display_name(self, name):
         self._display_name = name
 
