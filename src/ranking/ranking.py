@@ -4,7 +4,7 @@ from collections import namedtuple, OrderedDict
 
 from messages import msg_builder
 from player import Player
-from save_and_load import save_single_game, get_game_results
+from save_and_load import save_single_game
 from utils import ChainedDict
 from utils import emit_signal, logger
 
@@ -31,10 +31,17 @@ class AbstractState:
 
 
 class AbstractRanking:
-    def __init__(self, name, identity_manager):
+    def __init__(self, name, identity_manager,
+                 oldest_timestamp_to_consider=0,
+                 leaderboard_msgs=None, description="A ranking",
+                 **kwargs):
         self.name = name
         self.save_path = f"data/rankings/{name}.json"
+        self.oldest_timestamp_to_consider = oldest_timestamp_to_consider
         self.identity_manager = identity_manager
+        self.leaderboard_msgs = leaderboard_msgs
+        self.description = description
+
         self.identity_to_player = dict()
         self.rank_to_player = OrderedDict()
         self.wins = {}
@@ -42,8 +49,8 @@ class AbstractRanking:
         self.alias_to_player = ChainedDict(self.identity_manager,
                                            self.identity_to_player)
 
-    def __getitem__(self, rank):
-        return self.rank_to_player[rank]
+    def __getitem__(self, identity):
+        return self.identity_to_player[identity]
 
     def add_player(self, discord_id=None, aliases=None):
         identity = self.identity_manager.add_identity(
@@ -56,21 +63,6 @@ class AbstractRanking:
     def ensure_alias_existence(self, alias):
         if alias not in self.identity_manager.aliases:
             self.add_player(aliases=set(alias))
-
-    async def fetch_data(self, matchboard):
-        logger.info(f"Building {self.name} Ranking")
-        logger.info(f"{self.name} Ranking - Fetching game results.")
-
-        game_results = await get_game_results(matchboard)
-
-        logger.info((f"{self.name} Ranking - Registering {len(game_results)}"
-                    " fetched games."))
-
-        for g in game_results:
-            await self.register_game(g, save=False,
-                                     signal_update=False)
-
-        await emit_signal("ranking_updated")
 
     def initial_player_state(self):
         raise NotImplementedError()
@@ -92,13 +84,7 @@ class AbstractRanking:
         return list(self.rank_to_player.values())
 
     def register_game(self, game, save=True, signal_update=True):
-        if game["winner"] == "":
-            game["winner"] = None
-
-        if game["loser"] == "":
-            game["loser"] = None
-
-        if game["winner"] is None or game["loser"] is None:
+        if game["timestamp"] <= self.oldest_timestamp_to_consider:
             return None
 
         self.ensure_alias_existence(game["winner"])
@@ -142,9 +128,28 @@ class AbstractRanking:
             await emit_signal("game_registered", change)
 
         if signal_update:
-            await emit_signal("ranking_updated")
+            await emit_signal("rankings_updated")
 
         return change
+
+    def leaderboard_messages(self):
+        msgs = []
+
+        for m in self.leaderboard_msgs:
+            msg = dict(id=m["id"])
+            T = m["type"]
+
+            if T == "header":
+                msg["content"] = self.description
+            elif T == "content":
+                msg["content"] = self.leaderboard(m["min"], m["max"])
+            else:
+                raise KeyError(f"Leaderboard message of unkown type {T}"
+                               f"(id: {m['id']}) in Ranking {self.name}.")
+
+            msgs.append(msg)
+
+        return msgs
 
     def update_players(self, winner, loser):
         raise NotImplementedError()

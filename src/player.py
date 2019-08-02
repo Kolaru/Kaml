@@ -69,14 +69,3 @@ class Player:
     @property
     def win_ratio(self):
         return self.wins/self.total_games
-
-
-class PlayerNotFoundError(Exception):
-    def __init__(self, player_id=None):
-        self.player_id = player_id
-
-    def __str__(self):
-        if self.player_id is None:
-            return "Tried to find player without giving an identifier."
-
-        return f"No player found with identifier {self.player_id}."

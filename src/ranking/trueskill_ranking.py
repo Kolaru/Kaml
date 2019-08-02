@@ -38,9 +38,10 @@ class TrueSkillState(AbstractState):
 
 class TrueSkillRanking(AbstractRanking):
     def __init__(self, name, identity_manager,
-                 mu=25, sigma=25/3, beta=25/6, tau=25/300):
+                 mu=25, sigma=25/3, beta=25/6, tau=25/300,
+                 **kwargs):
 
-        super().__init__(name, identity_manager)
+        super().__init__(name, identity_manager, **kwargs)
 
         self.ts_env = trueskill.TrueSkill(
             draw_probability=0.0,
