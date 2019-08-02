@@ -35,7 +35,7 @@ class Player:
     def rank(self):
         return self.state.rank
 
-    @rank.setter()
+    @rank.setter
     def rank(self, new_rank):
         self.state.rank = new_rank
 

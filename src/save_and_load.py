@@ -3,7 +3,6 @@ import json
 import re
 
 from collections import OrderedDict
-from os.path import isfile
 
 from utils import emit_signal, locking, logger
 
@@ -162,8 +161,7 @@ async def save_games(games):
             writer.writerow(game)
 
 
-@locking("raw_results.csv")
-async def save_single_game(game):
+def save_single_game(game):
     with open("data/raw_results.csv", "a",
               encoding="utf-8", newline="") as file:
         writer = game_results_writer(file)
