@@ -35,6 +35,10 @@ class Identity:
         else:
             return self._display_name
 
+    @display_name.setter()
+    def display_name(self, name):
+        self._display_name = name
+
     @property
     def is_claimed(self):
         return self.discord_id is not None
@@ -48,8 +52,17 @@ class IdentityManager:
         self.discord_id_to_identity = {}
         self.identities = set()
 
-    def __getitem__(self, alias):
-        return self.alias_to_identity[alias]
+    def __getitem__(self, searchkey):
+        try:
+            if isinstance(searchkey, int):
+                return self.discord_id_to_identity[searchkey]
+            elif isinstance(searchkey, str):
+                return self.alias_to_identity[searchkey]
+            else:
+                raise TypeError("Searchkey for IdentityManager should be "
+                                "either int or str.")
+        except KeyError:
+            raise IdentityNotFoundError(searchkey)
 
     @property
     def aliases(self):
@@ -136,3 +149,14 @@ class IdentityManager:
             self.add_identity(discord_id=discord_id)
 
         return self.discord_id_to_identity[discord_id]
+
+
+class IdentityNotFoundError(Exception):
+    def __init__(self, searchkey=None):
+        self.searchkey = searchkey
+
+    def __str__(self):
+        if self.searchkey is None:
+            return "Tried to find player without giving an identifier."
+
+        return f"No player found with identifier {self.searchkey}."

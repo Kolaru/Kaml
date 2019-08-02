@@ -40,12 +40,12 @@ def parse_matchboard_msg(msg):
         m = re.match(LOSS_PATTERN, result)
         if m is not None:
             winner, loser = m.group(2, 1)
-    
+
     if winner is None:
         m = re.match(HALF_WIN_PATTERN, result)
         if m is not None:
             winner = m.group(1)
-    
+
     if loser is None:
         m = re.match(HALF_LOSS_PATTERN, result)
         if m is not None:
@@ -54,7 +54,7 @@ def parse_matchboard_msg(msg):
     # Strip comma from game names to avoid messing the csv
     winner = clean_name(winner)
     loser = clean_name(loser)
-    
+
     return OrderedDict(timestamp=msg.created_at.timestamp(),
                        id=msg.id,
                        winner=winner,
@@ -63,10 +63,10 @@ def parse_matchboard_msg(msg):
 
 def parse_mention_to_id(mention):
     m = re.match(MENTION_PATTERN, mention)
-    
+
     if m is None:
         return None
-    
+
     return int(m.group(1))
 
 
@@ -77,7 +77,7 @@ async def fetch_game_results(matchboard, after=None):
     history = matchboard.history(oldest_first=True,
                                  after=after,
                                  limit=None)
-    
+
     async for msg in history:
         game = parse_matchboard_msg(msg)
 
@@ -85,7 +85,7 @@ async def fetch_game_results(matchboard, after=None):
             continue
 
         game_results.append(game)
-    
+
     return game_results
 
 
@@ -140,10 +140,10 @@ async def load_game_results():
     return game_results
 
 
-def load_ranking_config(config_name):
+def load_ranking_configs(config_name):
     with open("config/ranking_config.json", "r", encoding="utf-8") as file:
         configs = json.load(file)
-    return configs[config_name]
+    return configs
 
 
 def load_tokens():
