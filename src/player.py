@@ -32,6 +32,10 @@ class Player:
         return self.rank + 1
 
     @property
+    def losses(self):
+        return self.state.losses
+
+    @property
     def rank(self):
         return self.state.rank
 
@@ -69,3 +73,7 @@ class Player:
     @property
     def win_ratio(self):
         return self.wins/self.total_games
+
+    @property
+    def wins(self):
+        return self.state.wins

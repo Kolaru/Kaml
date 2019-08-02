@@ -16,7 +16,9 @@ Comparison = namedtuple("Comparison", ["wins",
 
 
 class TrueSkillState(AbstractState):
-    def __init__(self, rating):
+    def __init__(self, rating, wins=0, losses=0):
+        self.wins = wins
+        self.losses = losses
         self.rating = rating
 
     @property
@@ -64,10 +66,19 @@ class TrueSkillRanking(AbstractRanking):
                           win_estimate=100*self.win_estimate(p1, p2))
 
     def initial_player_state(self):
-        return trueskill.Rating()
+        return TrueSkillState(trueskill.Rating())
 
-    def update_players(self, winner, loser):
-        wrating, lrating = trueskill.rate_1vs1(winner.rating, loser.rating)
+    def update_players(self, winner, loser, timestamp=None):
+        wrating, lrating = trueskill.rate_1vs1(winner.state.rating,
+                                               loser.state.rating)
+
+        wstate = TrueSkillState(wrating, wins=winner.wins + 1,
+                                losses=winner.losses)
+        winner.update_state(wstate, timestamp)
+
+        lstate = TrueSkillState(lrating, wins=loser.wins,
+                                losses=loser.losses + 1)
+        loser.update_state(lstate, timestamp)
 
     def win_estimate(self, p1, p2):
         delta_mu = p1.mu - p2.mu

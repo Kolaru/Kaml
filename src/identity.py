@@ -24,6 +24,9 @@ class Identity:
         self.discord_id = discord_id
         self.aliases = set(aliases)
 
+    def __repr__(self):
+        return f"Identity associated to aliases {self.aliases}"
+
     @property
     def display_name(self):
         if self._display_name is None:
@@ -64,13 +67,16 @@ class IdentityManager:
         except KeyError:
             raise IdentityNotFoundError(searchkey)
 
+    def __iter__(self):
+        return iter(self.identities)
+
     @property
     def aliases(self):
         return list(self.alias_to_identity.keys())
 
     def add_identity(self, discord_id=None, aliases=set()):
         identity = Identity(discord_id, aliases)
-        self.identities.append(identity)
+        self.identities.add(identity)
 
         for alias in aliases:
             self.alias_to_identity[alias] = identity
