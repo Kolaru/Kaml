@@ -20,6 +20,8 @@ ScoreChange = namedtuple("ScoreChange", ["winner",
 
 class AbstractState:
     rank = 0
+    wins = 0
+    losses = 0
 
     """Abstract class for a player relative to a ranking."""
     def asdict(self):
@@ -42,9 +44,14 @@ class AbstractRanking:
         self.leaderboard_msgs = leaderboard_msgs
         self.description = description
 
-        self.identity_to_player = dict()
         self.rank_to_player = OrderedDict()
         self.wins = {}
+
+        self.identity_to_player = dict()
+
+        for identity in self.identity_manager:
+            player = Player(identity, self.initial_player_state())
+            self.identity_to_player[identity] = player
 
         self.alias_to_player = ChainedDict(self.identity_manager,
                                            self.identity_to_player)
@@ -62,7 +69,7 @@ class AbstractRanking:
 
     def ensure_alias_existence(self, alias):
         if alias not in self.identity_manager.aliases:
-            self.add_player(aliases=set(alias))
+            self.add_player(aliases=set([alias]))
 
     def initial_player_state(self):
         raise NotImplementedError()
@@ -90,27 +97,21 @@ class AbstractRanking:
         self.ensure_alias_existence(game["winner"])
         self.ensure_alias_existence(game["loser"])
 
-        winner = self.alias_to_player(game["winner"])
-        loser = self.alias_to_player(game["loser"])
+        winner = self.alias_to_player[game["winner"]]
+        loser = self.alias_to_player[game["loser"]]
 
         winner_old_rank = winner.rank
         loser_old_rank = loser.rank
 
-        winner.save_state(game["timestamp"], winner_old_rank)
-        loser.save_state(game["timestamp"], loser_old_rank)
+        winner_old_score = winner.score
+        loser_old_score = loser.score
 
         if (winner, loser) not in self.wins:
             self.wins[(winner, loser)] = 1
         else:
             self.wins[(winner, loser)] += 1
 
-        winner_old_score = winner.score
-        loser_old_score = loser.score
-
-        self.update_players(winner, loser)
-
-        winner.wins += 1
-        loser.losses += 1
+        self.update_players(winner, loser, timestamp=game["timestamp"])
 
         winner_dscore = winner.score - winner_old_score
         loser_dscore = loser.score - loser_old_score
@@ -147,7 +148,7 @@ class AbstractRanking:
 
         return msgs
 
-    def update_players(self, winner, loser):
+    def update_players(self, winner, loser, timestamp=None):
         raise NotImplementedError()
 
     def update_ranks(self, player, dscore):

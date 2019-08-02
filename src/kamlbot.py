@@ -150,12 +150,15 @@ class Kamlbot(Bot):
         self.identity_manager = IdentityManager()
         self.identity_manager.load_data()
 
-        logger.info(f"{self.name} Fetching game results.")
+        logger.info("{Fetching game results.")
 
         ranking_configs = load_ranking_configs()
 
-        for name, config in ranking_configs:
-            self.rankings[name] = ranking_types[config["type"]](**config)
+        for name, config in ranking_configs.items():
+            self.rankings[name] = ranking_types[config["type"]](
+                                    name,
+                                    self.identity_manager,
+                                    **config)
 
         game_results = await get_game_results(self.matchboard)
         for game in game_results:
@@ -234,8 +237,7 @@ class Kamlbot(Bot):
             return None
 
         for name, ranking in self.rankings.items():
-            change = ranking.register_game(game, save=save,
-                                           signal_update=signal_update)
+            change = ranking.register_game(game, save=save)
 
             if name == "main":
                 await emit_signal("game_registered", change)

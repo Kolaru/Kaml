@@ -136,10 +136,13 @@ async def load_game_results():
             writer.writeheader()
             game_results = []
 
+    for k, game in enumerate(game_results):
+        game_results[k]["timestamp"] = float(game["timestamp"])
+
     return game_results
 
 
-def load_ranking_configs(config_name):
+def load_ranking_configs():
     with open("config/ranking_config.json", "r", encoding="utf-8") as file:
         configs = json.load(file)
     return configs
