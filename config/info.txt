@@ -1,0 +1,7 @@
+Folder containing configuration files.
+
+Files:
+    - messages.json  # Text of the messages
+    - ranking_config.json
+    - restart_chan.txt  # Chan in which to communicate after a restart
+    - tokens.json  # Bot token and servers IDs
