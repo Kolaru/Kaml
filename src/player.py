@@ -12,7 +12,7 @@ class Player:
     """
     def __init__(self, player_identity, initial_state):
         self.identity = player_identity
-        self.states = OrderedDict()
+        self.saved_states = OrderedDict()
         self.state = initial_state
 
     def __getattr__(self, attr):
@@ -62,8 +62,12 @@ class Player:
         return np.array([s.score for s in self.states.values()])
 
     @property
+    def states(self):
+        return {time.time(): self.state, **self.saved_states}
+
+    @property
     def times(self):
-        return np.array(list(self.states.keys()) + [time.time()])
+        return np.array(list(self.states.keys()))
 
     @property
     def total_games(self):
@@ -73,7 +77,7 @@ class Player:
         if timestamp is None:
             timestamp = time.time()
 
-        self.states[timestamp] = self.state
+        self.saved_states[timestamp] = self.state
         self.state = new_state
 
     @property

@@ -102,19 +102,24 @@ class Kamlbot(Bot):
 
         if len(nameparts) == 0:
             if cmd is None:
-                logger.error("get_players called without any name nor command")
+                logger.error("get_identities called without name nor command")
                 await msg_builder.send(
                         cmd.channel,
                         "generic_error")
 
                 raise IdentityNotFoundError()
+
+            try:
+                identity = self.identity_manager[cmd.author.id]
+                return (identity,)
+            except IdentityNotFoundError:
                 await msg_builder.send(
                         cmd.channel,
                         "no_alias_error",
-                        user=cmd.author)
+                        user=cmd.author
+                )
 
-            identity = self.identity_manager[cmd.author.id]
-            return (identity,)
+                raise
 
         if len(nameparts) == n:
             try:
@@ -345,16 +350,16 @@ async def alias(cmd, *names):
 Get a lot of info on a player.
 """)
 async def allinfo(cmd, *nameparts):
-    # TODO Fix command
     try:
         identity, = await kamlbot.get_identities(nameparts, cmd=cmd, n=1)
     except IdentityNotFoundError:
         return
 
-    player = kamlbot.rankings["main"][identity]
+    ranking = kamlbot.rankings["main"]
+    player = ranking[identity]
 
     fig, axes = plt.subplots(2, 2, sharex="col", sharey="row")
-    skip = 10  # TODO use global constant MINGAMES
+    skip = ranking.mingames
     times = player.times[skip:]
     days = (times - times[0])/(60*60*24)
     scores = player.scores[skip:]
@@ -382,10 +387,10 @@ async def allinfo(cmd, *nameparts):
     fig.savefig(buf, format='png')
     buf.seek(0)
 
-    if player.claimed:
+    if player.identity.is_claimed:
         msg = msg_builder.build("associated_aliases",
                                 player=player,
-                                aliases="\n".join(player.aliases))
+                                aliases="\n".join(player.identity.aliases))
     else:
         msg = msg_builder.build("player_not_claimed",
                                 player=player)
@@ -498,7 +503,7 @@ async def restart(cmd):
     with open("config/restart_chan.txt", "w") as file:
         file.write(str(cmd.channel.id))
 
-    os.execv(sys.executable, ["python", "kamlbot.py", "-restart"])
+    os.execv(sys.executable, ["python", "src/kamlbot.py", "-restart"])
 
 
 @kamlbot.command(help="""
