@@ -16,7 +16,8 @@ Comparison = namedtuple("Comparison", ["wins",
 
 
 class TrueSkillState(AbstractState):
-    def __init__(self, rating, wins=0, losses=0):
+    def __init__(self, rating, rank=None, wins=0, losses=0):
+        self.rank = rank
         self.wins = wins
         self.losses = losses
         self.rating = rating
@@ -72,11 +73,15 @@ class TrueSkillRanking(AbstractRanking):
         wrating, lrating = trueskill.rate_1vs1(winner.state.rating,
                                                loser.state.rating)
 
-        wstate = TrueSkillState(wrating, wins=winner.wins + 1,
+        wstate = TrueSkillState(wrating,
+                                rank=winner.rank,
+                                wins=winner.wins + 1,
                                 losses=winner.losses)
         winner.update_state(wstate, timestamp)
 
-        lstate = TrueSkillState(lrating, wins=loser.wins,
+        lstate = TrueSkillState(lrating,
+                                rank=loser.rank,
+                                wins=loser.wins,
                                 losses=loser.losses + 1)
         loser.update_state(lstate, timestamp)
 

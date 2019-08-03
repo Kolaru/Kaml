@@ -6,7 +6,7 @@
     "player_not_found_error": ":negative_squared_cross_mark: No player named **{player_name}** was found. You can search for existing aliases with the `!search` command.",
     "unable_to_build_alias": ":negative_squared_cross_mark: Impossible to build **{n}** valid aliases from the given input. You can search for existing aliases with the `!search` command.",
 
-    "player_rank": ":ledger: **{player.display_name}** is currently ranked **{player.rank}** and has **{player.score:.2f}** kamlpoints (± {player.sigma:.2f}) with {player.wins} wins and {player.losses} losses.",
+    "player_rank": ":ledger: **{player.display_name}** is currently ranked **{player.display_rank}** and has **{player.score:.2f}** kamlpoints (± {player.sigma:.2f}) with {player.wins} wins and {player.losses} losses.",
     "win_probability":":desktop: According to my estimation **{p1.display_name}** has a **{comparison.win_estimate:0.2f}%** chance of winning against **{p2.display_name}**.\nMy records says that **{p1.display_name}** has actually won **{comparison.wins}** out of their **{comparison.total}** games (**{comparison.win_empirical:0.2f}%** winrate).",
     "win_probability_blind":":desktop: No games were recorded between these two players. Nonetheless, my estimation says that **{p1.display_name}** has a **{win_estimate:0.2f}%** chance of winning against **{p2.display_name}**.",
 
