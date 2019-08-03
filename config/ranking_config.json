@@ -5,6 +5,7 @@
         "sigma":8.333,
         "beta":4.167,
         "tau":0.08333,
+        "mingames":20,
         "oldest_timestamp_to_consider":0,
         "description":"**Main ranking** - takes in account all recorded games",
         "leaderboard_msgs":[

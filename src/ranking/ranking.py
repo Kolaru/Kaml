@@ -6,8 +6,6 @@ from player import Player
 from save_and_load import save_single_game
 from utils import ChainedDict
 
-MINGAMES = 10
-
 ScoreChange = namedtuple("ScoreChange", ["winner",
                                          "loser",
                                          "winner_dscore",
@@ -31,12 +29,15 @@ class AbstractState:
 class AbstractRanking:
     def __init__(self, name, identity_manager,
                  oldest_timestamp_to_consider=0,
-                 leaderboard_msgs=None, description="A ranking",
+                 mingames=0,
+                 leaderboard_msgs=None,
+                 description="A ranking",
                  **kwargs):
         self.name = name
         self.save_path = f"data/rankings/{name}.json"
         self.oldest_timestamp_to_consider = oldest_timestamp_to_consider
         self.identity_manager = identity_manager
+        self.mingames = mingames
         self.leaderboard_msgs = leaderboard_msgs
         self.description = description
 
@@ -81,6 +82,25 @@ class AbstractRanking:
 
         return f"```\n{new_content}\n```"
 
+    def leaderboard_messages(self):
+        msgs = []
+
+        for m in self.leaderboard_msgs:
+            msg = dict(id=m["id"])
+            T = m["type"]
+
+            if T == "header":
+                msg["content"] = self.description
+            elif T == "content":
+                msg["content"] = self.leaderboard(m["min"], m["max"])
+            else:
+                raise KeyError(f"Leaderboard message of unkown type {T}"
+                               f"(id: {m['id']}) in Ranking {self.name}.")
+
+            msgs.append(msg)
+
+        return msgs
+
     @property
     def players(self):
         return list(self.rank_to_player.values())
@@ -121,25 +141,6 @@ class AbstractRanking:
 
         return change
 
-    def leaderboard_messages(self):
-        msgs = []
-
-        for m in self.leaderboard_msgs:
-            msg = dict(id=m["id"])
-            T = m["type"]
-
-            if T == "header":
-                msg["content"] = self.description
-            elif T == "content":
-                msg["content"] = self.leaderboard(m["min"], m["max"])
-            else:
-                raise KeyError(f"Leaderboard message of unkown type {T}"
-                               f"(id: {m['id']}) in Ranking {self.name}.")
-
-            msgs.append(msg)
-
-        return msgs
-
     @property
     def ranked_players(self):
         n = len(self.rank_to_player)
@@ -149,7 +150,7 @@ class AbstractRanking:
         raise NotImplementedError()
 
     def update_ranks(self, player, dscore):
-        if player.total_games < MINGAMES:
+        if player.total_games < self.mingames:
             return
 
         if dscore == 0:
