@@ -15,8 +15,14 @@ class Player:
         self.states = OrderedDict()
         self.state = initial_state
 
+    def __getattr__(self, attr):
+        return getattr(self.state, attr)
+
+    def __repr__(self):
+        return self.__str__()
+
     def __str__(self):
-        return f"Player {self.identity.display_name} ({self.state})"
+        return f"Player {self.display_name} rank {self.rank} with score {self.score} ({self.state})"
 
     def asdict(self):
         return dict(

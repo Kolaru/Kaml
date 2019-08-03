@@ -18,7 +18,7 @@ from identity import IdentityManager, IdentityNotFoundError
 from messages import msg_builder
 from ranking import ranking_types
 from save_and_load import (load_ranking_configs, load_tokens,
-                            parse_matchboard_msg, get_game_results)
+                           parse_matchboard_msg, get_game_results)
 from utils import connect, emit_signal, logger, partition
 
 
@@ -63,9 +63,9 @@ class Kamlbot(Bot):
     async def edit_leaderboard(self):
         """Edit the leaderboard messages with the current content."""
         for ranking in self.rankings.values():
-            for msg in ranking.leaderboard_messages:
+            for msg in ranking.leaderboard_messages():
                 try:
-                    message = await self.fetch_message(msg["id"])
+                    message = await self.leaderboard.fetch_message(msg["id"])
                     await message.edit(content=msg["content"])
                 except discord.errors.NotFound:
                     logger.warning("Leaderboard message not found.")
@@ -164,8 +164,8 @@ class Kamlbot(Bot):
         for game in game_results:
             await self.register_game(game, save=False, signal_update=False)
 
-        await self.update_mentions()
-        await emit_signal("rankings_updated")
+        await self.update_display_names()
+        await self.edit_leaderboard()
 
     # Called for every messages sent in any of the server to which the bot
     # has access.
@@ -266,9 +266,9 @@ class Kamlbot(Bot):
         Currently fetch the server nickname of every registered players.
         """
 
-        for player_id in self.identity_manager.claimed_ids:
-            user = await self.fetch_user(player_id)
-            self.identity_manager[player_id].display_name = user.display_name
+        for identity in self.identity_manager.claimed_identifiers:
+            user = await self.fetch_user(identity.discord_id)
+            identity.display_name = user.display_name
 
 
 kamlbot = Kamlbot(command_prefix="!")
@@ -328,7 +328,7 @@ async def alias(cmd, *names):
         return
 
     added, not_found = kamlbot.identity_manager.associate_aliases(user.id, names)
-    await kamlbot.update_mentions()
+    await kamlbot.update_display_names()
 
     msg = msg_builder.build("associated_aliases",
                             player=player,
@@ -345,6 +345,7 @@ async def alias(cmd, *names):
 Get a lot of info on a player.
 """)
 async def allinfo(cmd, *nameparts):
+    # TODO Fix command
     try:
         identity, = await kamlbot.get_identities(nameparts, cmd=cmd, n=1)
     except IdentityNotFoundError:
@@ -413,7 +414,7 @@ async def compare(cmd, *nameparts):
     msg += "\n" + msg_builder.build("player_rank",
                                     player=p2)
 
-    comparison = kamlbot.ranking.comparison(p1, p2)
+    comparison = kamlbot.rankings["main"].comparison(p1, p2)
 
     if comparison is not None:
         msg += "\n" + msg_builder.build("win_probability",

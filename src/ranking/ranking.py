@@ -1,16 +1,12 @@
 import json
-import os
-from collections import namedtuple, OrderedDict
+from collections import namedtuple
 
 from messages import msg_builder
 from player import Player
 from save_and_load import save_single_game
 from utils import ChainedDict
-from utils import emit_signal, logger
 
 MINGAMES = 10
-
-os.makedirs("rankings", exist_ok=True)
 
 ScoreChange = namedtuple("ScoreChange", ["winner",
                                          "loser",
@@ -19,7 +15,7 @@ ScoreChange = namedtuple("ScoreChange", ["winner",
 
 
 class AbstractState:
-    rank = 0
+    rank = None
     wins = 0
     losses = 0
 
@@ -44,9 +40,8 @@ class AbstractRanking:
         self.leaderboard_msgs = leaderboard_msgs
         self.description = description
 
-        self.rank_to_player = OrderedDict()
         self.wins = {}
-
+        self.rank_to_player = dict()
         self.identity_to_player = dict()
 
         for identity in self.identity_manager:
@@ -82,7 +77,7 @@ class AbstractRanking:
 
         new_content = "\n".join([msg_builder.build("leaderboard_line",
                                                    player=player)
-                                 for player in self[start:stop]])
+                                 for player in self.ranked_players[start:stop]])
 
         return f"```\n{new_content}\n```"
 
@@ -99,9 +94,6 @@ class AbstractRanking:
 
         winner = self.alias_to_player[game["winner"]]
         loser = self.alias_to_player[game["loser"]]
-
-        winner_old_rank = winner.rank
-        loser_old_rank = loser.rank
 
         winner_old_score = winner.score
         loser_old_score = loser.score
@@ -147,6 +139,11 @@ class AbstractRanking:
             msgs.append(msg)
 
         return msgs
+
+    @property
+    def ranked_players(self):
+        n = len(self.rank_to_player)
+        return [self.rank_to_player[k] for k in range(n)]
 
     def update_players(self, winner, loser, timestamp=None):
         raise NotImplementedError()
@@ -203,10 +200,14 @@ class AbstractRanking:
         self.rank_to_player[k] = player
 
         if k > 0:
-            assert player.score <= self.rank_to_player[k - 1].score
+            if player.score > self.rank_to_player[k - 1].score:
+                print(self.rank_to_player)
+                raise Exception(f"{player} not ranked correctly.")
 
         if k < N - 1:
-            assert player.score >= self.rank_to_player[k + 1].score
+            if player.score < self.rank_to_player[k + 1].score:
+                print(self.rank_to_player)
+                raise Exception(f"{player} not ranked correctly.")
 
     def save(self):
         with open(self.save_path, "w", encoding="utf-8") as file:

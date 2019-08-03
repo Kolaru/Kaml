@@ -6,7 +6,7 @@
         "beta":4.167,
         "tau":0.08333,
         "oldest_timestamp_to_consider":0,
-        "description":"# Main ranking taking in account all recorded games.",
+        "description":"**Main ranking** - takes in account all recorded games",
         "leaderboard_msgs":[
             {
                 "id":593505075142459392,

@@ -51,7 +51,7 @@ class IdentityManager:
     def __init__(self):
         self.alias_to_identity = {}
         self.claimed_aliases = set()
-        self.claimed_ids = []
+        self.claimed_identifiers = []
         self.discord_id_to_identity = {}
         self.identities = set()
 
@@ -83,7 +83,7 @@ class IdentityManager:
 
         if discord_id is not None:
             self.claimed_aliases.update(aliases)
-            self.claimed_ids.append(identity)
+            self.claimed_identifiers.append(identity)
             self.discord_id_to_identity[discord_id] = identity
 
         return identity

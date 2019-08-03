@@ -4,7 +4,7 @@ import re
 
 from collections import OrderedDict
 
-from utils import emit_signal, locking, logger
+from utils import locking, logger
 
 ## Parsing
 
