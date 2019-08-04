@@ -1,3 +1,5 @@
+from itertools import chain
+
 from save_and_load import clean_name
 from utils import logger
 
@@ -28,6 +30,10 @@ class Identity:
         return f"Identity associated to aliases {self.aliases}"
 
     @property
+    def display_aliases(self):
+        return "\n".join(self.aliases)
+            
+    @property
     def display_name(self):
         if self._display_name is None:
             if len(self.aliases) > 0:
@@ -50,8 +56,6 @@ class Identity:
 class IdentityManager:
     def __init__(self):
         self.alias_to_identity = {}
-        self.claimed_aliases = set()
-        self.claimed_identifiers = []
         self.discord_id_to_identity = {}
         self.identities = set()
 
@@ -62,8 +66,8 @@ class IdentityManager:
             elif isinstance(searchkey, str):
                 return self.alias_to_identity[searchkey]
             else:
-                raise TypeError("Searchkey for IdentityManager should be "
-                                "either int or str.")
+                raise TypeError(f"Searchkey for IdentityManager should be "
+                                f"either int or str not {type(searchkey)}.")
         except KeyError:
             raise IdentityNotFoundError(searchkey)
 
@@ -82,42 +86,18 @@ class IdentityManager:
             self.alias_to_identity[alias] = identity
 
         if discord_id is not None:
-            self.claimed_aliases.update(aliases)
-            self.claimed_identifiers.append(identity)
             self.discord_id_to_identity[discord_id] = identity
 
         return identity
 
-    def associate_aliases(self, discord_id, new_aliases):
-        taken = set(new_aliases).intersection(self.claimed_aliases)
-        if len(taken) > 0:
-            raise AliasTakenError(taken)
+    @property
+    def claimed_aliases(self):
+        return list(chain.from_iterable([identity.aliases for identity
+                                         in self.claimed_identities]))
 
-        found = []
-        not_found = []
-
-        for alias in new_aliases:
-            if alias in self.aliases:
-                found.append(alias)
-            else:
-                not_found.append(alias)
-
-        identity = self.to_identity(discord_id)
-        identity.update(new_aliases)
-        self.claimed_aliases.update(new_aliases)
-        to_delete = []
-
-        for alias in found:
-            past_id = self.alias_to_identity[alias]
-            to_delete.append(past_id)
-
-        for alias in new_aliases:
-            self.alias_to_identity[alias] = identity
-
-        self.identities -= set(to_delete)
-        self.save_data()
-
-        return found, not_found
+    @property
+    def claimed_identities(self):
+        return [identity for identity in self.identities if identity.is_claimed]
 
     def is_claimed(self, alias):
         return alias in self.claimed_aliases
@@ -149,12 +129,6 @@ class IdentityManager:
             for discord_id, identity in self.discord_id_to_identity.items():
                 aliases = [clean_name(alias) for alias in identity.aliases]
                 file.write('{},{}\n'.format(discord_id, ','.join(aliases)))
-
-    def to_identity(self, discord_id):
-        if discord_id not in self.discord_id_to_identity:
-            self.add_identity(discord_id=discord_id)
-
-        return self.discord_id_to_identity[discord_id]
 
 
 class IdentityNotFoundError(Exception):
