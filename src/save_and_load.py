@@ -3,9 +3,8 @@ import json
 import re
 
 from collections import OrderedDict
-from os.path import isfile
 
-from utils import emit_signal, locking, logger
+from utils import locking, logger
 
 ## Parsing
 
@@ -40,12 +39,12 @@ def parse_matchboard_msg(msg):
         m = re.match(LOSS_PATTERN, result)
         if m is not None:
             winner, loser = m.group(2, 1)
-    
+
     if winner is None:
         m = re.match(HALF_WIN_PATTERN, result)
         if m is not None:
             winner = m.group(1)
-    
+
     if loser is None:
         m = re.match(HALF_LOSS_PATTERN, result)
         if m is not None:
@@ -54,7 +53,7 @@ def parse_matchboard_msg(msg):
     # Strip comma from game names to avoid messing the csv
     winner = clean_name(winner)
     loser = clean_name(loser)
-    
+
     return OrderedDict(timestamp=msg.created_at.timestamp(),
                        id=msg.id,
                        winner=winner,
@@ -63,10 +62,10 @@ def parse_matchboard_msg(msg):
 
 def parse_mention_to_id(mention):
     m = re.match(MENTION_PATTERN, mention)
-    
+
     if m is None:
         return None
-    
+
     return int(m.group(1))
 
 
@@ -77,7 +76,7 @@ async def fetch_game_results(matchboard, after=None):
     history = matchboard.history(oldest_first=True,
                                  after=after,
                                  limit=None)
-    
+
     async for msg in history:
         game = parse_matchboard_msg(msg)
 
@@ -85,7 +84,7 @@ async def fetch_game_results(matchboard, after=None):
             continue
 
         game_results.append(game)
-    
+
     return game_results
 
 
@@ -124,47 +123,40 @@ def game_results_writer(file):
 async def load_game_results():
     try:
         logger.info("Retrieving saved games.")
-        with open("raw_results.csv", "r", encoding="utf-8", newline="") as file:
+        with open("data/raw_results.csv", "r", encoding="utf-8", newline="") as file:
             game_results = list(csv.DictReader(file))
 
-            logger.info( f"{len(game_results)} game results retrieved from save.")
+            logger.info(f"{len(game_results)} game results retrieved from save.")
 
     except FileNotFoundError:
         logger.warning("File `raw_results.csv` not found, creating a new one.")
 
-        with open("raw_results.csv", "w", encoding="utf-8", newline="") as file:
+        with open("data/raw_results.csv", "w", encoding="utf-8", newline="") as file:
             writer = game_results_writer(file)
             writer.writeheader()
             game_results = []
-            last_message = None
-    
+
+    for k, game in enumerate(game_results):
+        game_results[k]["timestamp"] = float(game["timestamp"])
+
     return game_results
 
 
-def load_ranking_config(config_name):
-    with open("ranking_config.json", "r", encoding="utf-8") as file:
+def load_ranking_configs():
+    with open("config/ranking_config.json", "r", encoding="utf-8") as file:
         configs = json.load(file)
-    return configs[config_name]
+    return configs
 
 
 def load_tokens():
-    with open("tokens.json", "r", encoding="utf-8") as file:
+    with open("config/tokens.json", "r", encoding="utf-8") as file:
         d = json.load(file)
     return d
 
 
-def save_aliases(id_to_aliases):
-    logger.info("Aliases file overriden.")
-
-    with open("aliases.csv", "w", encoding="utf-8") as file:
-        for discord_id, aliases in id_to_aliases.items():
-            aliases = [clean_name(aliase) for aliase in aliases]
-            file.write('{},{}\n'.format(discord_id, ','.join(aliases)))
-
-
 @locking("raw_results.csv")
 async def save_games(games):
-    with open("raw_results.csv", "a",
+    with open("data/raw_results.csv", "a",
               encoding="utf-8", newline="") as file:
         writer = game_results_writer(file)
 
@@ -172,9 +164,8 @@ async def save_games(games):
             writer.writerow(game)
 
 
-@locking("raw_results.csv")
-async def save_single_game(game):
-    with open("raw_results.csv", "a",
+def save_single_game(game):
+    with open("data/raw_results.csv", "a",
               encoding="utf-8", newline="") as file:
         writer = game_results_writer(file)
         writer.writerow(game)

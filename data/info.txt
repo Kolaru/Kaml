@@ -1,0 +1,8 @@
+Folder containing stored data.
+
+Files:
+    - aliases.csv
+    - raw_results.csv
+
+Folders:
+    - rankings
