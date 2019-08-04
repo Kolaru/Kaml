@@ -1,0 +1,18 @@
+{
+    "alias_added_to_profile": "In game name `{alias}` has be added to your profile. Since it's not the first one, the bot needs to be reloaded for the change to be effective. <@&573205104832806912>",
+    "alias_not_found": ":negative_squared_cross_mark: The name `{alias}` was not found.",
+    "associated_aliases": "{identity.display_name} profile is associated to the following in game name(s):\n```\n{identity.display_aliases}\n```",
+    "association_done": "Your discord profile has been associated to the in game name `{new_alias}`. You can now use the `!rank` command (and similar) without parameters.",
+    "game_result_title": ":medal: Ranked battle has ended",
+    "game_result_description": ":crown: **{winner.display_name}** {winner.score:.2f} ({change.winner_dscore:+.2f}) vs **{loser.display_name}** {loser.score:.2f} ({change.loser_dscore:+.2f})",
+    "generic_error": "Something wrong happened. Hopefully someone will be able to fix that shortly. <@&573205104832806912>",
+    "leaderboard_line": "{player.display_rank:<4} {player.score:<7.2f} ± {player.sigma:<5.2f} {player.display_name:<20} {player.wins:<5}/{player.losses:<5}",
+    "no_alias_error": ":negative_squared_cross_mark: No in-game names are associated to your Discord profile. You can associate alias to your profile using the `!alias` command.",
+    "player_not_claimed": "The in game name `{player.display_name}` is not currently claimed.",
+    "player_not_found_error": ":negative_squared_cross_mark: No player named **{player_name}** was found. You can search for existing aliases with the `!search` command.",
+    "player_rank": ":ledger: **{player.display_name}** is currently ranked **{player.display_rank}** and has **{player.score:.2f}** kamlpoints (± {player.sigma:.2f}) with {player.wins} wins and {player.losses} losses.",
+    "taken_alias": "**{alias}** is already claimed by {identity.display_name}",
+    "unable_to_build_alias": ":negative_squared_cross_mark: Impossible to build **{n}** valid aliases from the given input. You can search for existing aliases with the `!search` command.",
+    "win_probability":":desktop: According to my estimation **{p1.display_name}** has a **{comparison.win_estimate:0.2f}%** chance of winning against **{p2.display_name}**.\nMy records says that **{p1.display_name}** has actually won **{comparison.wins}** out of their **{comparison.total}** games (**{comparison.win_empirical:0.2f}%** winrate).",
+    "win_probability_blind":":desktop: No games were recorded between these two players. Nonetheless, my estimation says that **{p1.display_name}** has a **{win_estimate:0.2f}%** chance of winning against **{p2.display_name}**."
+}

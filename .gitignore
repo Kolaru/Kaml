@@ -1,8 +1,19 @@
-/log
-/.vscode
-/__pycache__
-/rankings
+log/*
+.vscode/
+__pycache__/
+data/*
+!data/rankings/
+data/rankings/*
+
+!**/info.txt
 
 restart_chan.txt
 tokens.json
-*.csv
+
+*.aux
+*.bcf
+*.log
+*.out
+*.xml
+*.gz
+*.bak

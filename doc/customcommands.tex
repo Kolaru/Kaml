@@ -1,0 +1,73 @@
+% Symbols
+\renewcommand{\emptyset}{\varnothing}
+\newcommand{\total}{\text{d}}  % d for total derivative
+
+% Modifiers
+\newcommand{\code}[1]{\texttt{#1}}  % shortcut to insert code inline
+\newcommand{\myvec}[1]{\boldsymbol{\mathrm{#1}}}  % bold vectors
+
+% Encompassing (i.e. somthing is put both side of the input}
+\newcommand{\bigO}[1]{\mathcal{O}\!\left(#1\right)}  % big O notation
+\newcommand{\expected}[2][]{\mathbb{E}_{#1}\!\left[ #2 \right]}
+\newcommand{\interval}[1]{\left[#1\right]}
+\newcommand{\norm}[1]{\Vert #1\Vert}  % norm of a vector
+\newcommand{\set}[1]{\{#1\}}  % set notation with curly braces
+\newcommand{\var}[1]{\mathrm{var}\!\left[ #1 \right]}
+\newcommand{\todoi}[2][]{\todo[inline, #1]{#2}} % shorthand for inline todo
+
+% Misc
+\newcommand{\refspace}{\nobreak\hspace{.16667em plus .08333em}}  % Unsecable space for placement between eq. and eq number
+\newcommand{\EE}[1]{\cdot 10^{#1}}  % power of 10
+\newcommand{\etal}{\textit{et al.}}
+\newcommand{\fulleqref}[1]{eq.\refspace\eqref{#1}}  % Full equation reference
+\newcommand{\evaluatedat}[1]{\Bigr|_{#1}}
+\newcommand{\missingref}[1][]{[\todo[color=blue!30, size=\tiny, caption={Missing reference}]{Missing ref\ifthenelse{\isempty{#1}}{}{: #1}	}?]\xspace}
+\newcommand{\nchoosek}[2]{\begin{pmatrix} #1 \\ #2 \end{pmatrix}}
+\newcommand{\longsub}[1]{_{\text{\tiny #1}}}  % long subscript
+\newcommand{\newconcept}[1]{\index{#1}\emph{#1}}  % indicate first occurence of a concept
+
+% Colors
+
+% Default matplotlib colors (also known as T10 categorical Tableau colors)
+\definecolor{C0}{HTML}{1F77B4}  % blue
+\definecolor{C1}{HTML}{FF7F0E}  % orange
+\definecolor{C2}{HTML}{2CA02C}  % green
+\definecolor{C3}{HTML}{D62728}  % red
+\definecolor{C4}{HTML}{9467BD}  % purple
+\definecolor{C5}{HTML}{8C564B}  % brown
+\definecolor{C6}{HTML}{E377C2}  % pink
+\definecolor{C7}{HTML}{7F7F7F}  % gray
+\definecolor{C8}{HTML}{BCBD22}  % olive
+\definecolor{C9}{HTML}{17BECF}  % cyan
+
+% Project specific
+
+\renewcommand{\deg}[2][]{\mathrm{deg}_{#1}\, #2 }
+\newcommand{\etavec}{\myvec{\eta}}
+\newcommand{\GCC}{\mathrm{GCC}}
+\newcommand{\ibox}[1]{\myvec{#1}}
+\newcommand{\lambdavec}{\myvec{\lambda}}
+\newcommand{\Lambdabox}{\myvec{\Lambda}}
+\newcommand{\polylog}[2]{\mathrm{Li}_{#1}\!\left(#2\right)}
+\newcommand{\unitinterval}{\mathcal{I}}
+\newcommand{\uvec}{\myvec{u}}
+\newcommand{\vvec}{\myvec{v}}
+\newcommand{\zvec}{\myvec{z}}
+\newcommand{\Zbox}{\ibox{Z}}
+\newcommand{\algoset}[1]{\mathcal{S}\longsub{#1}}
+
+
+% More visible (and actually ugly) invalid reference and present in todo list
+\makeatletter
+
+\def\@setref#1#2#3{%
+  \ifx#1\relax
+   \protect\G@refundefinedtrue
+   \nfss@text{\todo[color=gray, inline]{Invalid reference to '#3'}}%
+   \@latex@warning{Reference `#3' on page \thepage \space
+             undefined}%
+  \else
+   \expandafter#2#1\null
+  \fi}
+
+\makeatother
