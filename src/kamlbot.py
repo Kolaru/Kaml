@@ -115,9 +115,7 @@ class Kamlbot(Bot):
             except IdentityNotFoundError:
                 await msg_builder.send(
                         cmd.channel,
-                        "no_alias_error",
-                        user=cmd.author
-                )
+                        "no_alias_error")
 
                 raise
 
@@ -271,7 +269,7 @@ class Kamlbot(Bot):
         Currently fetch the server nickname of every registered players.
         """
 
-        for identity in self.identity_manager.claimed_identifiers:
+        for identity in self.identity_manager.claimed_identities:
             user = await self.fetch_user(identity.discord_id)
             identity.display_name = user.display_name
 
@@ -288,62 +286,76 @@ async def check_available(cmd):
         return False
 
 @kamlbot.command(help="""
-Associate in game name(s) to the user's discord profile.
-
-Multiple names can be given at once.
+Associate in game name to the user's discord profile.
 """)
-async def alias(cmd, *names):
-    # TODO Fix command
-    await cmd.channel.send("Alias command is sadly currently broken. However, <@314190533301895178> can make the association manually.")
-    return
+async def alias(cmd, name=None):
     user = cmd.author
 
-    logger.info("{0.mention} claims names {1}".format(user, names))
+    logger.info("{0.mention} claims names {1}".format(user, name))
+
+    if name is not None and kamlbot.identity_manager.is_claimed(name):
+        previous_claimant = kamlbot.identity_manager[name]
+        await msg_builder.send(
+                cmd.channel,
+                "taken_alias",
+                alias=name,
+                identity=previous_claimant)
+        return
 
     try:
-        player = await kamlbot.identity_manager[user.id]
+        claimant_identity = kamlbot.identity_manager[user.id]
     except IdentityNotFoundError:
-        if len(names) > 0:
-            player = kamlbot.identity_manager.add_player(player_id=user.id, aliases=[])
-        else:
-            await msg_builder.send(cmd.channel, "no_alias_error", user=user)
-            return
+        claimant_identity = None
 
-    if len(names) == 0:
-        if len(player.aliases) > 0:
-            msg = msg_builder.build("associated_aliases",
-                                    player=player,
-                                    aliases="\n".join(player.aliases))
-        else:
-            msg = msg_builder.build("no_alias_error", user=user)
+    if name is None:
+        if claimant_identity is not None:
+            await msg_builder.send(
+                        cmd.channel,
+                        "associated_aliases",
+                        identity=claimant_identity)
 
-        await cmd.channel.send(msg)
+        else:
+            await msg_builder.send(
+                        cmd.channel,
+                        "no_alias_error")
+
         return
 
-    taken = kamlbot.identity_manager.extract_claims(names)
+    try:
+        alias_identity = kamlbot.identity_manager[name]
 
-    if len(taken) > 0:
-        taken_list = [msg_builder.build("taken_alias",
-                                        alias=name,
-                                        player=player)
-                      for name, player in taken.items()]
-        await msg_builder.send("not_associated_aliases",
-                               n=len(taken),
-                               taken_aliases="\n".join(taken_list))
-        return
+        if claimant_identity is None:
+            alias_identity.discord_id = user.id
+            kamlbot.identity_manager.discord_id_to_identity[user.id] = alias_identity
 
-    added, not_found = kamlbot.identity_manager.associate_aliases(user.id, names)
-    await kamlbot.update_display_names()
+            await msg_builder.send(
+                        cmd.channel,
+                        "association_done",
+                        new_alias=name)
 
-    msg = msg_builder.build("associated_aliases",
-                            player=player,
-                            aliases="\n".join(player.aliases))
+        else:
+            claimant_identity.aliases.add(name)
+            alias_identity.aliases = set()
+            kamlbot.identity_manager.alias_to_identity[name] = claimant_identity
 
-    if len(not_found) > 0:
-        msg += msg_builder.build("not_found_aliases",
-                                 aliases="\n".join(not_found))
+            await msg_builder.send(
+                        cmd.channel,
+                        "alias_added_to_profile",
+                        user=user,
+                        alias=name)
 
-    await cmd.channel.send(msg)
+            await msg_builder.send(
+                        cmd.channel,
+                        "associated_aliases",
+                        identity=claimant_identity)
+
+        kamlbot.identity_manager.save_data()
+
+    except IdentityNotFoundError:
+        await msg_builder.send(
+            cmd.channel,
+            "alias_not_found",
+            alias=name)
 
 
 @kamlbot.command(help="""
@@ -389,8 +401,7 @@ async def allinfo(cmd, *nameparts):
 
     if player.identity.is_claimed:
         msg = msg_builder.build("associated_aliases",
-                                player=player,
-                                aliases="\n".join(player.identity.aliases))
+                                identity=player.identity)
     else:
         msg = msg_builder.build("player_not_claimed",
                                 player=player)
