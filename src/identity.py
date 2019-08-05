@@ -32,7 +32,7 @@ class Identity:
     @property
     def display_aliases(self):
         return "\n".join(self.aliases)
-            
+
     @property
     def display_name(self):
         if self._display_name is None:
@@ -64,7 +64,10 @@ class IdentityManager:
             if isinstance(searchkey, int):
                 return self.discord_id_to_identity[searchkey]
             elif isinstance(searchkey, str):
-                return self.alias_to_identity[searchkey]
+                try:
+                    return self.alias_to_identity[searchkey]
+                except KeyError:
+                    return self.discord_name_to_identity[searchkey]
             else:
                 raise TypeError(f"Searchkey for IdentityManager should be "
                                 f"either int or str not {type(searchkey)}.")
@@ -98,6 +101,10 @@ class IdentityManager:
     @property
     def claimed_identities(self):
         return [identity for identity in self.identities if identity.is_claimed]
+
+    @property
+    def discord_name_to_identity(self):
+        return {iden.display_name: iden for iden in self.claimed_identities}
 
     def is_claimed(self, alias):
         return alias in self.claimed_aliases

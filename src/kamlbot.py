@@ -522,7 +522,7 @@ async def restart(cmd, param=None):
             repo.remotes.origin.pull()
         else:
             await cmd.channel.send(f"Unknown parameter `{param}`.")
-            
+
     await cmd.channel.send("I will now die and be replaced.")
 
     with open("config/restart_chan.txt", "w") as file:
