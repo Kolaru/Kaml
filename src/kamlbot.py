@@ -239,6 +239,9 @@ class Kamlbot(Bot):
         if game["winner"] == "" or game["loser"] == "":
             return None
 
+        if game["winner"] is None or game["loser"] is None:
+            return None
+
         for name, ranking in self.rankings.items():
             change = ranking.register_game(game, save=save)
 
