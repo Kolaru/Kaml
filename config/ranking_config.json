@@ -7,20 +7,38 @@
         "tau":0.08333,
         "mingames":20,
         "oldest_timestamp_to_consider":0,
-        "description":"**Main ranking** - takes in account all recorded games",
         "leaderboard_msgs":[
             {
-                "id":593505075142459392,
-                "type":"header"
+                "type":"header",
+                "content":"**Main ranking** - takes in account all recorded games"
             },
             {
-                "id":593506705875140638,
                 "type":"content",
                 "min":1,
                 "max":25
             },
             {
-                "id":593508655706669057,
+                "type":"content",
+                "min":26,
+                "max":50
+            }
+        ]
+    },
+    "eel":{
+        "type":"eel",
+        "mingames":0,
+        "oldest_timestamp_to_consider":0,
+        "leaderboard_msgs":[
+            {
+                "type":"header",
+                "content":"**Experimental Eel ranking**"
+            },
+            {
+                "type":"content",
+                "min":1,
+                "max":25
+            },
+            {
                 "type":"content",
                 "min":26,
                 "max":50
