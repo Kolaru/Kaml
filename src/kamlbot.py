@@ -2,6 +2,7 @@ import discord
 import git
 import io
 import os
+import progressbar
 import time
 import sys
 
@@ -164,7 +165,7 @@ class Kamlbot(Bot):
                                     **config)
 
         game_results = await get_game_results(self.matchboard)
-        for game in game_results:
+        for game in progressbar.progressbar(game_results):
             await self.register_game(game, save=False, signal_update=False)
 
         await self.update_display_names()
