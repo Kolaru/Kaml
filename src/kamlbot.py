@@ -532,7 +532,7 @@ async def restart(cmd, param=None):
 Search for a player. Optional argument `n` is the maximal number of name returned.
 """)
 async def search(cmd, name, n=5):
-    matches = get_close_matches(name, kamlbot.identity_manager.get_playerses,
+    matches = get_close_matches(name, kamlbot.identity_manager.aliases,
                                 n=n)
 
     msg = "\n".join(matches)
