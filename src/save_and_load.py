@@ -22,8 +22,8 @@ def clean_name(s):
 
 
 def parse_matchboard_msg(msg):
-    """Parse a message on the matchboard, return the result as the tuple `winner, loser` or `None`
-    if winner and loser can not be determined (e.g. messages with only one name).
+    """Parse a message on the matchboard, return the result as the tuple
+    `winner, loser` or `None` if winner and loser can not be determined.
     """
     if len(msg.embeds) == 0:
         return None

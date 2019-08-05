@@ -239,6 +239,9 @@ class Kamlbot(Bot):
         if game["winner"] == "" or game["loser"] == "":
             return None
 
+        if game["winner"] is None or game["loser"] is None:
+            return None
+
         for name, ranking in self.rankings.items():
             change = ranking.register_game(game, save=save)
 
@@ -421,8 +424,10 @@ async def compare(cmd, *nameparts):
     except IdentityNotFoundError:
         return
 
-    p1 = kamlbot.rankings["main"][i1]
-    p2 = kamlbot.rankings["main"][i2]
+    ranking = kamlbot.rankings["main"]
+
+    p1 = ranking[i1]
+    p2 = ranking[i2]
 
     msg = msg_builder.build("player_rank",
                             player=p1)
@@ -430,7 +435,7 @@ async def compare(cmd, *nameparts):
     msg += "\n" + msg_builder.build("player_rank",
                                     player=p2)
 
-    comparison = kamlbot.rankings["main"].comparison(p1, p2)
+    comparison = ranking.comparison(p1, p2)
 
     if comparison is not None:
         msg += "\n" + msg_builder.build("win_probability",
@@ -438,10 +443,11 @@ async def compare(cmd, *nameparts):
                                         p2=p2,
                                         comparison=comparison)
     else:
-        msg += "\n" + msg_builder.build("win_probability_blind",
-                                        p1=p1,
-                                        p2=p2,
-                                        win_estimate=100*kamlbot.ranking.win_estimate(p1, p2))
+        msg += "\n" + msg_builder.build(
+                            "win_probability_blind",
+                            p1=p1,
+                            p2=p2,
+                            win_estimate=100*ranking.win_estimate(p1, p2))
 
     await cmd.channel.send(msg)
 
@@ -516,7 +522,7 @@ async def restart(cmd, param=None):
             repo.remotes.origin.pull()
         else:
             await cmd.channel.send(f"Unknown parameter `{param}`.")
-            
+
     await cmd.channel.send("I will now die and be replaced.")
 
     with open("config/restart_chan.txt", "w") as file:
@@ -529,7 +535,7 @@ async def restart(cmd, param=None):
 Search for a player. Optional argument `n` is the maximal number of name returned.
 """)
 async def search(cmd, name, n=5):
-    matches = get_close_matches(name, kamlbot.identity_manager.get_playerses,
+    matches = get_close_matches(name, kamlbot.identity_manager.aliases,
                                 n=n)
 
     msg = "\n".join(matches)
