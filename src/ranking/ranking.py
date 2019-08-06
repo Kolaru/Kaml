@@ -1,7 +1,6 @@
 import json
 from collections import namedtuple
 
-from messages import msg_builder
 from player import Player
 from save_and_load import save_single_game
 from utils import ChainedDict
@@ -31,6 +30,7 @@ class AbstractRanking:
                  oldest_timestamp_to_consider=0,
                  mingames=0,
                  leaderboard_msgs=None,
+                 leaderboard_line=None,
                  description="A ranking",
                  **kwargs):
         self.name = name
@@ -39,6 +39,7 @@ class AbstractRanking:
         self.identity_manager = identity_manager
         self.mingames = mingames
         self.leaderboard_msgs = leaderboard_msgs
+        self.leaderboard_line = leaderboard_line
         self.description = description
 
         self.wins = {}
@@ -55,17 +56,17 @@ class AbstractRanking:
     def __getitem__(self, identity):
         return self.identity_to_player[identity]
 
-    def add_player(self, discord_id=None, aliases=None):
-        identity = self.identity_manager.add_identity(
-                            discord_id=discord_id,
-                            aliases=aliases)
-
-        player = Player(identity, self.initial_player_state())
-        self.identity_to_player[identity] = player
-
     def ensure_alias_existence(self, alias):
         if alias not in self.identity_manager.aliases:
-            self.add_player(aliases=set([alias]))
+            identity = self.identity_manager.add_identity(
+                            discord_id=None,
+                            aliases=[alias])
+        else:
+            identity = self.identity_manager[alias]
+
+        if identity not in self.identity_to_player:
+            player = Player(identity, self.initial_player_state())
+            self.identity_to_player[identity] = player
 
     def initial_player_state(self):
         raise NotImplementedError()
@@ -76,8 +77,7 @@ class AbstractRanking:
         if start >= 0:
             start -= 1
 
-        new_content = "\n".join([msg_builder.build("leaderboard_line",
-                                                   player=player)
+        new_content = "\n".join([self.leaderboard_line.format(player=player)
                                  for player in self.ranked_players[start:stop]])
 
         return f"```\n{new_content}\n```"
@@ -86,18 +86,17 @@ class AbstractRanking:
         msgs = []
 
         for m in self.leaderboard_msgs:
-            msg = dict(id=m["id"])
             T = m["type"]
 
             if T == "header":
-                msg["content"] = self.description
+                pass
             elif T == "content":
-                msg["content"] = self.leaderboard(m["min"], m["max"])
+                m["content"] = self.leaderboard(m["min"], m["max"])
             else:
-                raise KeyError(f"Leaderboard message of unkown type {T}"
-                               f"(id: {m['id']}) in Ranking {self.name}.")
+                raise KeyError(f"Leaderboard message of unkown type {T} "
+                               f"in Ranking {self.name}.")
 
-            msgs.append(msg)
+            msgs.append(m)
 
         return msgs
 
@@ -202,13 +201,19 @@ class AbstractRanking:
 
         if k > 0:
             if player.score > self.rank_to_player[k - 1].score:
-                print(self.rank_to_player)
-                raise Exception(f"{player} not ranked correctly.")
+                for rank, player in self.rank_to_player.items():
+                    print(f"{rank}    : {player}")
+                raise Exception(
+                    f"{player} not reranked correctly from {old_rank}"
+                    f"(dscore = {dscore}, inc = {inc}).")
 
         if k < N - 1:
             if player.score < self.rank_to_player[k + 1].score:
-                print(self.rank_to_player)
-                raise Exception(f"{player} not ranked correctly.")
+                for rank, player in self.rank_to_player.items():
+                    print(f"{rank}    : {player}")
+                raise Exception(
+                    f"{player} not reranked correctly from {old_rank}"
+                    f"(dscore = {dscore}, inc = {inc}).")
 
     def save(self):
         with open(self.save_path, "w", encoding="utf-8") as file:
