@@ -39,7 +39,7 @@
         "leaderboard_msgs":[
             {
                 "type":"header",
-                "content":"**Trueskill ranking for Season 3**"
+                "content":"**Season 3 ranking**"
             },
             {
                 "type":"content",
