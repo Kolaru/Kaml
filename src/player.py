@@ -35,6 +35,9 @@ class Player:
 
     @property
     def display_rank(self):
+        if self.rank is None:
+            return None
+
         return self.rank + 1
 
     @property
