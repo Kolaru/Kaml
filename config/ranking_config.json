@@ -7,6 +7,7 @@
         "tau":0.08333,
         "mingames":20,
         "oldest_timestamp_to_consider":0,
+        "leaderboard_chan":"leaderboard",
         "leaderboard_msgs":[
             {
                 "type":"header",
@@ -28,6 +29,7 @@
         "type":"eel",
         "mingames":0,
         "oldest_timestamp_to_consider":0,
+        "leaderboard_chan":"exp_leaderboard",
         "leaderboard_msgs":[
             {
                 "type":"header",

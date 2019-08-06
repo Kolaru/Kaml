@@ -86,18 +86,17 @@ class AbstractRanking:
         msgs = []
 
         for m in self.leaderboard_msgs:
-            msg = dict(id=m["id"])
             T = m["type"]
 
             if T == "header":
-                msg["content"] = self.description
+                continue
             elif T == "content":
-                msg["content"] = self.leaderboard(m["min"], m["max"])
+                m["content"] = self.leaderboard(m["min"], m["max"])
             else:
-                raise KeyError(f"Leaderboard message of unkown type {T}"
-                               f"(id: {m['id']}) in Ranking {self.name}.")
+                raise KeyError(f"Leaderboard message of unkown type {T} "
+                               f"in Ranking {self.name}.")
 
-            msgs.append(msg)
+            msgs.append(m)
 
         return msgs
 

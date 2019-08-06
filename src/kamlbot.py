@@ -66,11 +66,7 @@ class Kamlbot(Bot):
         """Edit the leaderboard messages with the current content."""
         for ranking in self.rankings.values():
             for msg in ranking.leaderboard_messages():
-                try:
-                    message = await self.leaderboard.fetch_message(msg["id"])
-                    await message.edit(content=msg["content"])
-                except discord.errors.NotFound:
-                    logger.warning("Leaderboard message not found.")
+                await msg["msg"].edit(content=msg["content"])
 
     def find_names(self, nameparts, n=1):
         k = len(nameparts)
@@ -154,11 +150,31 @@ class Kamlbot(Bot):
         self.identity_manager = IdentityManager()
         self.identity_manager.load_data()
 
-        logger.info("{Fetching game results.")
+        logger.info("Fetching game results.")
 
         ranking_configs = load_ranking_configs()
+        channels = set()
+
+        # Clean leaderboards
+        for name, config in ranking_configs.items():
+            chan = discord.utils.get(self.kaml_server.text_channels,
+                                     name=config["leaderboard_chan"])
+
+            channels.add(chan)
+
+        for chan in channels:
+            async for msg in chan.history():
+                await msg.delete()
 
         for name, config in ranking_configs.items():
+            chan = discord.utils.get(self.kaml_server.text_channels,
+                                     name=config["leaderboard_chan"])
+
+            for leaderboard_msg in config["leaderboard_msgs"]:
+                leaderboard_msg["msg"] = await chan.send(
+                    "Temporary message, will be edited with the leaderboard "
+                    "once the bot is ready.")
+
             self.rankings[name] = ranking_types[config["type"]](
                                     name,
                                     self.identity_manager,
@@ -196,16 +212,14 @@ class Kamlbot(Bot):
             print("Too much on_ready")
             return
 
+        self.kaml_server = self.get_guild(tokens["kaml_server_id"])
+
         # Retrieve special channels
-        for chan in self.get_guild(tokens["kaml_server_id"]).channels:
-            if chan.name == "debug":
-                self.debug_chan = chan
+        self.debug_chan = discord.utils.get(self.kaml_server.text_channels,
+                                            name="debug")
 
-            if chan.name == "kamlboard":
-                self.kamlboard = chan
-
-            if chan.name == "leaderboard":
-                self.leaderboard = chan
+        self.kamlboard = discord.utils.get(self.kaml_server.text_channels,
+                                           name="kamlboard")
 
         for chan in self.get_guild(tokens["pw_server_id"]).channels:
             if chan.name == "matchboard":

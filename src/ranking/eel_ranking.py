@@ -6,11 +6,15 @@ class EelState(AbstractState):
         self.rank = rank
         self.wins = wins
         self.losses = losses
-        self.score = score
+        self._score = score
 
     @property
     def level(self):
         return min(self.score // 100, 6)
+
+    @property
+    def score(self):
+        return self._score
 
 
 class EelRanking(AbstractRanking):
