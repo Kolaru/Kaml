@@ -50,10 +50,39 @@ class Kamlbot(Bot):
         today = datetime.today()
 
         if today.weekday() == 0:  # 0 is for monday
-            pass  # TODO restart weekly ranking
+            # Restart weekly ranking
+
+            self.clean_leaderboards()
+
+            for name, config in self.ranking_configs.items():
+                chan = discord.utils.get(self.kaml_server.text_channels,
+                                         name=config["leaderboard_chan"])
+
+                for leaderboard_msg in config["leaderboard_msgs"]:
+                    leaderboard_msg["msg"] = await chan.send(
+                        "Temporary message, will be edited with the leaderboard "
+                        "once the bot is ready.")
+
+            config = self.ranking_configs["weekly"]
+            self.rankings["weekly"] = ranking_types[config["type"]](
+                                        name,
+                                        self.identity_manager,
+                                        **config)
 
         if today.day == 1:
             pass  # TODO restart monthly ranking
+
+    async def clean_leaderboards(self):
+        channels = set()
+        for name, config in self.ranking_configs.items():
+            chan = discord.utils.get(self.kaml_server.text_channels,
+                                     name=config["leaderboard_chan"])
+
+            channels.add(chan)
+
+        for chan in channels:
+            async for msg in chan.history():
+                await msg.delete()
 
     async def debug(self, msg):
         """Log the given `msg` to the default logger with debug level and
@@ -152,21 +181,17 @@ class Kamlbot(Bot):
 
         logger.info("Fetching game results.")
 
-        ranking_configs = load_ranking_configs()
-        channels = set()
+        now = datetime.now()
+        last_monday = now.replace(day=now.day - now.weekday(),
+                                  hour=12, minute=0,
+                                  second=0, microsecond=0)
 
-        # Clean leaderboards
-        for name, config in ranking_configs.items():
-            chan = discord.utils.get(self.kaml_server.text_channels,
-                                     name=config["leaderboard_chan"])
+        self.ranking_configs = load_ranking_configs()
+        self.ranking_configs["weekly"]["oldest_timestamp_to_consider"] = last_monday.timestamp()
 
-            channels.add(chan)
+        await self.clean_leaderboards()
 
-        for chan in channels:
-            async for msg in chan.history():
-                await msg.delete()
-
-        for name, config in ranking_configs.items():
+        for name, config in self.ranking_configs.items():
             chan = discord.utils.get(self.kaml_server.text_channels,
                                      name=config["leaderboard_chan"])
 
