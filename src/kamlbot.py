@@ -388,35 +388,6 @@ async def allinfo(cmd, *nameparts):
     ranking = kamlbot.rankings["main"]
     player = ranking[identity]
 
-    fig, axes = plt.subplots(2, 2, sharex="col", sharey="row")
-    skip = ranking.mingames
-    times = player.times[skip:]
-    days = (times - times[0])/(60*60*24)
-    scores = player.scores[skip:]
-    ranks = player.ranks[skip:]
-    ns = range(skip, len(scores) + skip)
-
-    ax = axes[0, 0]
-    ax.plot(ns, scores)
-    ax.set_ylabel("Score")
-
-    ax = axes[0, 1]
-    ax.plot(days, scores)
-
-    ax = axes[1, 0]
-    ax.plot(ns, ranks)
-    ax.set_ylabel("Rank")
-    ax.set_xlabel("Number of games played")
-
-    ax = axes[1, 1]
-    ax.plot(days, ranks)
-    ax.set_xlabel("Days since first game")
-    ax.set_ylim(ax.get_ylim()[::-1])  # ax.invert_yaxis() somehow doesn't work
-
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png')
-    buf.seek(0)
-
     if player.identity.is_claimed:
         msg = msg_builder.build("associated_aliases",
                                 identity=player.identity)
@@ -425,9 +396,42 @@ async def allinfo(cmd, *nameparts):
                                 player=player)
 
     await cmd.channel.send(msg)
-    await cmd.channel.send(file=File(buf, "ranks.png"))
 
-    buf.close()
+    if player.rank is not None:
+        fig, axes = plt.subplots(2, 2, sharex="col", sharey="row")
+        skip = ranking.mingames
+        times = player.times[skip:]
+        days = (times - times[0])/(60*60*24)
+        scores = player.scores[skip:]
+        ranks = player.ranks[skip:]
+        ns = range(skip, len(scores) + skip)
+
+        ax = axes[0, 0]
+        ax.plot(ns, scores)
+        ax.set_ylabel("Score")
+
+        ax = axes[0, 1]
+        ax.plot(days, scores)
+
+        ax = axes[1, 0]
+        ax.plot(ns, ranks)
+        ax.set_ylabel("Rank")
+        ax.set_xlabel("Number of games played")
+
+        ax = axes[1, 1]
+        ax.plot(days, ranks)
+        ax.set_xlabel("Days since first game")
+        ax.set_ylim(ax.get_ylim()[::-1])  # ax.invert_yaxis() somehow doesn't work
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+
+        await cmd.channel.send(file=File(buf, "ranks.png"))
+
+        buf.close()
+    else:
+        await cmd.channel.send("Not enough game played to produce graphs.")
 
 
 @kamlbot.command(help="""
