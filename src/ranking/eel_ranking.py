@@ -8,6 +8,9 @@ class EelState(AbstractState):
         self.losses = losses
         self._score = score
 
+    def __repr__(self):
+        return f"EelState: score {self.score} ({self.wins}/{self.losses})"
+
     @property
     def level(self):
         return min(self.score // 100, 6)
@@ -46,11 +49,13 @@ class EelRanking(AbstractRanking):
         dscore = self.point_table[dlevel]
 
         winner.update_state(EelState(
+            rank=winner.rank,
             score=winner.score + dscore,
             wins=winner.wins + 1,
             losses=winner.losses))
 
         loser.update_state(EelState(
-            score=loser.score - dscore,
+            rank=loser.rank,
+            score=max(0, loser.score - dscore),
             wins=loser.wins,
             losses=loser.losses + 1))

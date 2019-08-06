@@ -6,7 +6,6 @@
     "game_result_title": ":medal: Ranked battle has ended",
     "game_result_description": ":crown: **{winner.display_name}** {winner.score:.2f} ({change.winner_dscore:+.2f}) vs **{loser.display_name}** {loser.score:.2f} ({change.loser_dscore:+.2f})",
     "generic_error": "Something wrong happened. Hopefully someone will be able to fix that shortly. <@&573205104832806912>",
-    "leaderboard_line": "{player.display_rank:<4} {player.score:<7.2f} ± {player.sigma:<5.2f} {player.display_name:<20} {player.wins:<5}/{player.losses:<5}",
     "no_alias_error": ":negative_squared_cross_mark: No in-game names are associated to your Discord profile. You can associate alias to your profile using the `!alias` command.",
     "player_not_claimed": "The in game name `{player.display_name}` is not currently claimed.",
     "player_not_found_error": ":negative_squared_cross_mark: No player named **{player_name}** was found. You can search for existing aliases with the `!search` command.",
