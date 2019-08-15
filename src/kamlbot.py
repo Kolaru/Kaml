@@ -298,6 +298,9 @@ class Kamlbot(Bot):
                                 winner=change.winner,
                                 loser=change.loser)
 
+        msg += '\n' + msg_builder.build("game_result_record",
+                                        change=change)
+
         embed = Embed(color=0xf36541,
                       timestamp=datetime.now(),
                       title=msg_builder.build("game_result_title"),

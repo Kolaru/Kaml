@@ -8,7 +8,12 @@ from utils import ChainedDict
 ScoreChange = namedtuple("ScoreChange", ["winner",
                                          "loser",
                                          "winner_dscore",
-                                         "loser_dscore"])
+                                         "loser_dscore",
+                                         "winner_rank",
+                                         "loser_rank",
+                                         "winner_old_rank",
+                                         "loser_old_rank",
+                                         "h2h_record"])
 
 
 class AbstractState:
@@ -117,6 +122,9 @@ class AbstractRanking:
         winner_old_score = winner.score
         loser_old_score = loser.score
 
+        winner_old_rank = winner.display_rank
+        loser_old_rank = loser.display_rank
+
         if (winner, loser) not in self.wins:
             self.wins[(winner, loser)] = 1
         else:
@@ -127,18 +135,39 @@ class AbstractRanking:
         winner_dscore = winner.score - winner_old_score
         loser_dscore = loser.score - loser_old_score
 
+        self.update_ranks(winner, winner_dscore)
+        self.update_ranks(loser, loser_dscore)
+
+        winner_rank = winner.display_rank
+        loser_rank = loser.display_rank
+
+        comparison = self.comparison(winner, loser)
+        if comparison is not None:
+            h2h_record = f"{comparison.wins}-{comparison.losses}"
+        else:
+            h2h_record = None
+
         change = ScoreChange(winner=winner,
                              loser=loser,
                              winner_dscore=winner_dscore,
-                             loser_dscore=loser_dscore)
-
-        self.update_ranks(winner, winner_dscore)
-        self.update_ranks(loser, loser_dscore)
+                             loser_dscore=loser_dscore,
+                             winner_rank=winner_rank,
+                             loser_rank=loser_rank,
+                             winner_old_rank=winner_old_rank,
+                             loser_old_rank=loser_old_rank,
+                             h2h_record=h2h_record)
 
         if save:
             save_single_game(game)
 
         return change
+
+    def comparison(self, p1, p2):
+        """A temporary super method so that alternative ranking systems don't prevent running the bot
+
+        I'm not actually sure if this is a good idea
+        """
+        pass
 
     @property
     def ranked_players(self):
