@@ -287,7 +287,7 @@ class Kamlbot(Bot):
             save_single_game(game)
 
         for name, ranking in self.rankings.items():
-            change = ranking.register_game(game, save=save)
+            change = ranking.register_game(game)
 
             if signal_update and name == "main":
                 await emit_signal("game_registered", change)
