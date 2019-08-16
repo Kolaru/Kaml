@@ -20,7 +20,8 @@ from identity import IdentityManager, IdentityNotFoundError
 from messages import msg_builder
 from ranking import ranking_types
 from save_and_load import (load_ranking_configs, load_tokens,
-                           parse_matchboard_msg, get_game_results)
+                           parse_matchboard_msg, get_game_results,
+                           save_single_game)
 from utils import connect, emit_signal, logger, partition
 
 
@@ -281,6 +282,9 @@ class Kamlbot(Bot):
 
         if game["winner"] is None or game["loser"] is None:
             return None
+
+        if save:
+            save_single_game(game)
 
         for name, ranking in self.rankings.items():
             change = ranking.register_game(game, save=save)

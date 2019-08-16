@@ -2,7 +2,6 @@ import json
 from collections import namedtuple
 
 from player import Player
-from save_and_load import save_single_game
 from utils import ChainedDict
 
 ScoreChange = namedtuple("ScoreChange", ["winner",
@@ -12,11 +11,11 @@ ScoreChange = namedtuple("ScoreChange", ["winner",
 
 
 class AbstractState:
+    """Abstract class for a player relative to a ranking."""
     rank = None
     wins = 0
     losses = 0
 
-    """Abstract class for a player relative to a ranking."""
     def asdict(self):
         raise NotImplementedError()
 
@@ -55,6 +54,13 @@ class AbstractRanking:
 
     def __getitem__(self, identity):
         return self.identity_to_player[identity]
+
+    def asdict(self):
+        players = [p.asdict() for p in self.players]
+        return dict(name=self.name,
+                    players=players,
+                    wins=self.wins
+                    )
 
     def ensure_alias_existence(self, alias):
         if alias not in self.identity_manager.aliases:
@@ -104,7 +110,7 @@ class AbstractRanking:
     def players(self):
         return list(self.rank_to_player.values())
 
-    def register_game(self, game, save=True):
+    def register_game(self, game):
         if game["timestamp"] <= self.oldest_timestamp_to_consider:
             return None
 
@@ -134,9 +140,6 @@ class AbstractRanking:
 
         self.update_ranks(winner, winner_dscore)
         self.update_ranks(loser, loser_dscore)
-
-        if save:
-            save_single_game(game)
 
         return change
 
