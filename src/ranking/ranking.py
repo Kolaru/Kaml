@@ -140,12 +140,8 @@ class AbstractRanking:
 
         winner_rank = winner.display_rank
         loser_rank = loser.display_rank
-
-        comparison = self.comparison(winner, loser)
-        if comparison is not None:
-            h2h_record = f"{comparison.wins}-{comparison.losses}"
-        else:
-            h2h_record = None
+        
+        h2h_record = f"{self.wins.get((winner, loser),0)}-{self.wins.get((loser, winner),0)}"
 
         change = ScoreChange(winner=winner,
                              loser=loser,
@@ -161,13 +157,6 @@ class AbstractRanking:
             save_single_game(game)
 
         return change
-
-    def comparison(self, p1, p2):
-        """A temporary super method so that alternative ranking systems don't prevent running the bot
-
-        I'm not actually sure if this is a good idea
-        """
-        pass
 
     @property
     def ranked_players(self):

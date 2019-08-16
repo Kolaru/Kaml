@@ -539,10 +539,34 @@ async def rank(cmd, *nameparts):
 
     player = kamlbot.rankings["main"][identity]
 
-    await msg_builder.send(
-            cmd.channel,
-            "player_rank",
-            player=player)
+    # get current record of the player
+    wins = player.wins
+    losses = player.losses
+    total_games = wins + losses
+    if total_games < 10:
+        no_of_games = total_games
+    else:
+        no_of_games = 10
+    current_form = ""
+    for t in player.times[-1:-(no_of_games+1):-1]:  # get the times of the last 10 games played
+        # get record of the current time state
+        tstate_wins = player.saved_states[t].wins
+        tstate_losses = player.saved_states[t].losses
+        if tstate_wins < wins:  # player has won the previous game
+            current_form += ":crown:"
+        elif tstate_losses < losses:  # player has lost the previous game
+            current_form += ":meat_on_bone:"
+        # update record for the next iteration
+        wins = tstate_wins
+        losses = tstate_losses
+
+    msg = msg_builder.build("player_rank",
+                            player=player)
+    msg += "\n" + msg_builder.build("player_form",
+                                    no_of_games=no_of_games,
+                                    current_form=current_form)
+
+    await cmd.channel.send(msg)
 
 
 @kamlbot.command(help="""
