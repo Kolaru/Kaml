@@ -247,9 +247,8 @@ class Kamlbot(Bot):
         self.kamlboard = discord.utils.get(self.kaml_server.text_channels,
                                            name="kamlboard")
 
-        for chan in self.get_guild(tokens["pw_server_id"]).channels:
-            if chan.name == "matchboard":
-                self.matchboard = chan
+        self.matchboard = discord.utils.get(self.get_guild(tokens["pw_server_id"]).text_channels,
+                                            name="matchboard")
 
         await self.change_presence(status=discord.Status.online)
 
@@ -287,7 +286,7 @@ class Kamlbot(Bot):
             save_single_game(game)
 
         for name, ranking in self.rankings.items():
-            change = ranking.register_game(game, save=save)
+            change = ranking.register_game(game)
 
             if signal_update and name == "main":
                 await emit_signal("game_registered", change)
