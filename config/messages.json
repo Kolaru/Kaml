@@ -4,7 +4,7 @@
     "associated_aliases": "{identity.display_name} profile is associated to the following in game name(s):\n```\n{identity.display_aliases}\n```",
     "association_done": "Your discord profile has been associated to the in game name `{new_alias}`. You can now use the `!rank` command (and similar) without parameters.",
     "game_result_title": ":medal: Ranked battle has ended",
-    "game_result_description": ":crown: **{winner.display_name}** {winner.score:.2f} ({change.winner_dscore:+.2f}, #{change.winner_old_rank} -> #{change.winner_rank})\n:meat_on_bone: **{loser.display_name}** {loser.score:.2f} ({change.loser_dscore:+.2f}, #{change.loser_old_rank} -> #{change.loser_rank})",
+    "game_result_description": ":crown: **{winner.display_name}** {winner.score:.2f} ({change.winner_dscore:+.2f}, #{change.winner_old_rank} --> #{change.winner_rank})\n:meat_on_bone: **{loser.display_name}** {loser.score:.2f} ({change.loser_dscore:+.2f}, #{change.loser_old_rank} --> #{change.loser_rank})",
     "game_result_record": ":ledger: **{change.h2h_record}**",
     "generic_error": "Something wrong happened. Hopefully someone will be able to fix that shortly. <@&573205104832806912>",
     "no_alias_error": ":negative_squared_cross_mark: No in-game names are associated to your Discord profile. You can associate alias to your profile using the `!alias` command.",
