@@ -248,7 +248,7 @@ class Kamlbot(Bot):
                                            name="kamlboard")
 
         self.matchboard = discord.utils.find(lambda s: s.name == "matchboard",
-                                             self.get_guild(tokens["pw_server_id"].text_channels))
+                                             self.get_guild(tokens["pw_server_id"]).text_channels)
 
         await self.change_presence(status=discord.Status.online)
 
