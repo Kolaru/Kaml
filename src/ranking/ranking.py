@@ -7,7 +7,12 @@ from utils import ChainedDict
 ScoreChange = namedtuple("ScoreChange", ["winner",
                                          "loser",
                                          "winner_dscore",
-                                         "loser_dscore"])
+                                         "loser_dscore",
+                                         "winner_rank",
+                                         "loser_rank",
+                                         "winner_drank",
+                                         "loser_drank",
+                                         "h2h_record"])
 
 
 class AbstractState:
@@ -133,13 +138,59 @@ class AbstractRanking:
         winner_dscore = winner.score - winner_old_score
         loser_dscore = loser.score - loser_old_score
 
-        change = ScoreChange(winner=winner,
-                             loser=loser,
-                             winner_dscore=winner_dscore,
-                             loser_dscore=loser_dscore)
+        winner_old_rank = winner.display_rank
+        loser_old_rank = loser.display_rank
 
         self.update_ranks(winner, winner_dscore)
         self.update_ranks(loser, loser_dscore)
+
+        winner_rank = winner.display_rank
+        loser_rank = loser.display_rank
+
+        # There are 3 potential scenarios:
+        # 1) a player was ranked None and continues to be None (X more games for rank assignment)
+        # 2) a player was ranked None and obtains a rank (⮝ to new rank)
+        # 3) a player rises or falls in an existing rank (⮝ or ⮞0 or ⮟)
+
+        # Scenario 1
+        if winner.total_games < self.mingames:
+            winner_drank = str(self.mingames - winner.total_games) + " more games required"
+        # Scenario 2
+        elif winner.total_games == self.mingames or winner_old_rank is None:
+            winner_drank = "▲" + str(winner_rank)
+        # Scenario 3
+        elif winner_rank == winner_old_rank:
+            winner_drank = "➤0"
+        elif winner_rank < winner_old_rank:  # they are placed higher
+            winner_drank = "▲" + str(abs(winner_old_rank - winner_rank))
+        else:  # they are placed lower
+            winner_drank = "▼" + str(winner.rank - winner_old_rank)
+
+        # Scenario 1
+        if loser.total_games < self.mingames:
+            loser_drank = str(self.mingames - loser.total_games) + " more games required"
+        # Scenario 2
+        elif loser.total_games == self.mingames or loser_old_rank is None:
+            loser_drank = "▲" + str(loser_rank)
+        # Scenario 3
+        elif loser_rank == loser_old_rank:
+            loser_drank = "➤0"
+        elif loser_rank > loser_old_rank:  # they have placed lower
+            loser_drank = "▼" + str(abs(loser_rank - loser_old_rank))
+        else:  # they have placed higher
+            loser_drank = "▲" + str(loser_old_rank - loser.rank)
+
+        h2h_record = f"{self.wins.get((winner, loser),0)} – {self.wins.get((loser, winner),0)}"
+
+        change = ScoreChange(winner=winner,
+                             loser=loser,
+                             winner_dscore=winner_dscore,
+                             loser_dscore=loser_dscore,
+                             winner_rank=winner_rank,
+                             loser_rank=loser_rank,
+                             winner_drank=winner_drank,
+                             loser_drank=loser_drank,
+                             h2h_record=h2h_record)
 
         return change
 
