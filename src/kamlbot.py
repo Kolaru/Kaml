@@ -247,9 +247,8 @@ class Kamlbot(Bot):
         self.kamlboard = discord.utils.get(self.kaml_server.text_channels,
                                            name="kamlboard")
 
-        for chan in self.get_guild(tokens["pw_server_id"]).channels:
-            if chan.name == "matchboard":
-                self.matchboard = chan
+        self.matchboard = discord.utils.find(lambda s: s.name == "matchboard",
+                                             self.get_guild(tokens["pw_server_id"]).text_channels)
 
         await self.change_presence(status=discord.Status.online)
 
@@ -287,7 +286,7 @@ class Kamlbot(Bot):
             save_single_game(game)
 
         for name, ranking in self.rankings.items():
-            change = ranking.register_game(game, save=save)
+            change = ranking.register_game(game)
 
             if signal_update and name == "main":
                 await emit_signal("game_registered", change)
@@ -297,15 +296,34 @@ class Kamlbot(Bot):
 
     async def send_game_result(self, change):
         """Create a new message in the KAML matchboard."""
-        msg = msg_builder.build("game_result_description",
-                                change=change,
-                                winner=change.winner,
-                                loser=change.loser)
 
-        embed = Embed(color=0xf36541,
-                      timestamp=datetime.now(),
-                      title=msg_builder.build("game_result_title"),
-                      description=msg)
+        embed = Embed(title=msg_builder.build("game_result_title"),
+                      color=0xf36541,
+                      timestamp=datetime.utcnow())
+        embed.add_field(name=msg_builder.build(
+                            "game_result_winner_name",
+                            name=change.winner.display_name),
+                        value=msg_builder.build(
+                            "game_result_winner_description",
+                            change=change),
+                        inline=True)
+        embed.add_field(name=msg_builder.build(
+                            "game_result_loser_name",
+                            name=change.loser.display_name),
+                        value=msg_builder.build(
+                            "game_result_loser_description",
+                            change=change),
+                        inline=True)
+        embed.add_field(name=msg_builder.build("game_result_record_title"),
+                        value=msg_builder.build(
+                            "game_result_record_description",
+                            change=change),
+                        inline=False)
+        embed.add_field(name=msg_builder.build(
+                            "game_result_record_history_title",
+                            number="X"),
+                        value=msg_builder.build("game_result_record_history_description"),
+                        inline=True)
 
         embed.set_footer(text="")
         await self.kamlboard.send(embed=embed)
@@ -540,10 +558,31 @@ async def rank(cmd, *nameparts):
 
     player = kamlbot.rankings["main"][identity]
 
-    await msg_builder.send(
-            cmd.channel,
-            "player_rank",
-            player=player)
+    # get current record of the player
+    no_of_games = min(player.total_games, 10)
+    wins = player.wins
+    losses = player.losses
+
+    current_form = ""
+    for t in reversed(player.times[-no_of_games:]):  # get the times of the last games played
+        # get record of the current time state
+        tstate_wins = player.saved_states[t].wins
+        tstate_losses = player.saved_states[t].losses
+        if tstate_wins < wins:  # player has won the previous game
+            current_form += ":crown:"
+        elif tstate_losses < losses:  # player has lost the previous game
+            current_form += ":meat_on_bone:"
+        # update record for the next iteration
+        wins = tstate_wins
+        losses = tstate_losses
+
+    msg = msg_builder.build("player_rank",
+                            player=player)
+    msg += "\n" + msg_builder.build("player_form",
+                                    no_of_games=no_of_games,
+                                    current_form=current_form)
+
+    await cmd.channel.send(msg)
 
 
 @kamlbot.command(help="""
