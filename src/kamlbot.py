@@ -296,18 +296,24 @@ class Kamlbot(Bot):
 
     async def send_game_result(self, change):
         """Create a new message in the KAML matchboard."""
-        msg = msg_builder.build("game_result_description",
-                                change=change,
-                                winner=change.winner,
-                                loser=change.loser)
+        winner_msg = {"name": msg_builder.build("game_result_winner_name", name=change.winner.display_name),
+                      "value": msg_builder.build("game_result_winner_description", change=change),
+                      "inline": True}
+        loser_msg = {"name": msg_builder.build("game_result_loser_name", name=change.loser.display_name),
+                     "value": msg_builder.build("game_result_loser_description", change=change),
+                     "inline": True}
+        record_msg = {"name": msg_builder.build("game_result_record_title"),
+                      "value": msg_builder.build("game_result_record_description", change=change)}
+        record_history_msg = {"name": msg_builder.build("game_result_record_history_title", number="X"),
+                              "value": msg_builder.build("game_result_record_history_description")}
 
-        msg += '\n' + msg_builder.build("game_result_record",
-                                        change=change)
-
-        embed = Embed(color=0xf36541,
-                      timestamp=datetime.utcnow(),
-                      title=msg_builder.build("game_result_title"),
-                      description=msg)
+        embed = Embed(title=msg_builder.build("game_result_title"),
+                      color=0xf36541,
+                      timestamp=datetime.utcnow())
+        embed.add_field(name=winner_msg["name"], value=winner_msg["value"], inline=True)
+        embed.add_field(name=loser_msg["name"], value=loser_msg["value"], inline=True)
+        embed.add_field(name=record_msg["name"], value=record_msg["value"], inline=False)
+        embed.add_field(name=record_history_msg["name"], value=record_history_msg["value"], inline=True)
 
         embed.set_footer(text="")
         await self.kamlboard.send(embed=embed)
