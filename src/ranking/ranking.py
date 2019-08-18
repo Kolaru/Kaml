@@ -179,7 +179,7 @@ class AbstractRanking:
             loser_drank = "▼" + str(abs(loser_rank - loser_old_rank))
         else:  # they have placed higher
             loser_drank = "▲" + str(loser_old_rank - loser.rank)
-        
+
         h2h_record = f"{self.wins.get((winner, loser),0)} – {self.wins.get((loser, winner),0)}"
 
         change = ScoreChange(winner=winner,

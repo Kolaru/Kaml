@@ -296,24 +296,34 @@ class Kamlbot(Bot):
 
     async def send_game_result(self, change):
         """Create a new message in the KAML matchboard."""
-        winner_msg = {"name": msg_builder.build("game_result_winner_name", name=change.winner.display_name),
-                      "value": msg_builder.build("game_result_winner_description", change=change),
-                      "inline": True}
-        loser_msg = {"name": msg_builder.build("game_result_loser_name", name=change.loser.display_name),
-                     "value": msg_builder.build("game_result_loser_description", change=change),
-                     "inline": True}
-        record_msg = {"name": msg_builder.build("game_result_record_title"),
-                      "value": msg_builder.build("game_result_record_description", change=change)}
-        record_history_msg = {"name": msg_builder.build("game_result_record_history_title", number="X"),
-                              "value": msg_builder.build("game_result_record_history_description")}
 
         embed = Embed(title=msg_builder.build("game_result_title"),
                       color=0xf36541,
                       timestamp=datetime.utcnow())
-        embed.add_field(name=winner_msg["name"], value=winner_msg["value"], inline=True)
-        embed.add_field(name=loser_msg["name"], value=loser_msg["value"], inline=True)
-        embed.add_field(name=record_msg["name"], value=record_msg["value"], inline=False)
-        embed.add_field(name=record_history_msg["name"], value=record_history_msg["value"], inline=True)
+        embed.add_field(name=msg_builder.build(
+                            "game_result_winner_name",
+                            name=change.winner.display_name),
+                        value=msg_builder.build(
+                            "game_result_winner_description",
+                            change=change),
+                        inline=True)
+        embed.add_field(name=msg_builder.build(
+                            "game_result_loser_name",
+                            name=change.loser.display_name),
+                        value=msg_builder.build(
+                            "game_result_loser_description",
+                            change=change),
+                        inline=True)
+        embed.add_field(name=msg_builder.build("game_result_record_title"),
+                        value=msg_builder.build(
+                            "game_result_record_description",
+                            change=change),
+                        inline=False)
+        embed.add_field(name=msg_builder.build(
+                            "game_result_record_history_title",
+                            number="X"),
+                        value=msg_builder.build("game_result_record_history_description"),
+                        inline=True)
 
         embed.set_footer(text="")
         await self.kamlboard.send(embed=embed)
@@ -549,15 +559,12 @@ async def rank(cmd, *nameparts):
     player = kamlbot.rankings["main"][identity]
 
     # get current record of the player
+    no_of_games = min(player.total_games, 10)
     wins = player.wins
     losses = player.losses
-    total_games = wins + losses
-    if total_games < 10:
-        no_of_games = total_games
-    else:
-        no_of_games = 10
+
     current_form = ""
-    for t in player.times[-1:-(no_of_games+1):-1]:  # get the times of the last 10 games played
+    for t in reversed(player.times[-no_of_games:]):  # get the times of the last games played
         # get record of the current time state
         tstate_wins = player.saved_states[t].wins
         tstate_losses = player.saved_states[t].losses
