@@ -54,6 +54,8 @@ class Identity:
     def leaderboard_name(self):
         text = self.display_name
         text_len = wcswidth(self.display_name)
+
+        is_asian = False
         for char in text:  # checks each character to see if anyone of it is Asian-width characters
             is_asian = False
             if wcwidth(char) == 2:
@@ -61,10 +63,10 @@ class Identity:
                 break
 
         width_size = 20
-        if is_asian:  # must be 22 width
+        if is_asian:  # must be 22 width (width_size + 2)
             if text_len > (width_size + 2):  # add characters until 22
                 current_len = 0
-                formatted_text = ""
+                formatted_text = u""
                 for char in text:
                     formatted_text += char
                     current_len += wcwidth(char)
@@ -74,7 +76,7 @@ class Identity:
                         formatted_text = formatted_text[:-1] + u" "
                         break
                 return formatted_text
-            elif text_len < (width_size + 2):  # add ideographic space (　) until 21
+            elif text_len < (width_size + 2):  # add ideographic space (　) until 22 or 21
                 current_len = text_len
                 formatted_text = text
                 while current_len != (width_size + 2):
@@ -89,6 +91,8 @@ class Identity:
                 return text[:width_size]
             elif text_len < width_size:
                 return text + u" " * (width_size - text_len)
+            else:
+                return text
 
     @property
     def is_claimed(self):
