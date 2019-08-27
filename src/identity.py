@@ -101,18 +101,19 @@ class Identity:
 class IdentityManager:
     def __init__(self):
         self.alias_to_identity = {}
+        self.alias_to_identity_keys = []
         self.discord_id_to_identity = {}
         self.identities = set()
 
     def __getitem__(self, searchkey):
         try:
-            if isinstance(searchkey, int):
-                return self.discord_id_to_identity[searchkey]
-            elif isinstance(searchkey, str):
+            if type(searchkey) == str:
                 try:
                     return self.alias_to_identity[searchkey]
                 except KeyError:
                     return self.discord_name_to_identity[searchkey]
+            elif type(searchkey) == int:
+                return self.discord_id_to_identity[searchkey]
             else:
                 raise TypeError(f"Searchkey for IdentityManager should be "
                                 f"either int or str not {type(searchkey)}.")
@@ -124,7 +125,7 @@ class IdentityManager:
 
     @property
     def aliases(self):
-        return list(self.alias_to_identity.keys())
+        return self.alias_to_identity_keys
 
     def add_identity(self, discord_id=None, aliases=set()):
         identity = Identity(discord_id, aliases)
@@ -132,6 +133,7 @@ class IdentityManager:
 
         for alias in aliases:
             self.alias_to_identity[alias] = identity
+            self.alias_to_identity_keys.append(alias)
 
         if discord_id is not None:
             self.discord_id_to_identity[discord_id] = identity
