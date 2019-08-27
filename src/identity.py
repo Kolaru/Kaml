@@ -57,7 +57,6 @@ class Identity:
 
         is_asian = False
         for char in text:  # checks each character to see if anyone of it is Asian-width characters
-            is_asian = False
             if wcwidth(char) == 2:
                 is_asian = True
                 break
