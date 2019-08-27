@@ -244,7 +244,9 @@ class AbstractRanking:
             k += inc
             other = self.rank_to_player[k]
 
-        if other.score*inc > player.score*inc:
+        other_score = other.score
+        player_score = player.score
+        if other_score*inc > player_score*inc:
             other.rank = k - inc
             self.rank_to_player[other.rank] = other
         else:
@@ -254,7 +256,7 @@ class AbstractRanking:
         self.rank_to_player[k] = player
 
         if k > 0:
-            if player.score > self.rank_to_player[k - 1].score:
+            if player_score > self.rank_to_player[k - 1].score:
                 for rank, player in self.rank_to_player.items():
                     print(f"{rank}    : {player}")
                 raise Exception(
@@ -262,7 +264,7 @@ class AbstractRanking:
                     f"(dscore = {dscore}, inc = {inc}).")
 
         if k < N - 1:
-            if player.score < self.rank_to_player[k + 1].score:
+            if player_score < self.rank_to_player[k + 1].score:
                 for rank, player in self.rank_to_player.items():
                     print(f"{rank}    : {player}")
                 raise Exception(
