@@ -1,3 +1,5 @@
+from wcwidth import wcswidth, wcwidth
+
 from itertools import chain
 
 from save_and_load import clean_name
@@ -47,6 +49,49 @@ class Identity:
     @display_name.setter
     def display_name(self, name):
         self._display_name = name
+
+    @property
+    def leaderboard_name(self):
+        text = self.display_name
+        text_len = wcswidth(self.display_name)
+
+        is_asian = False
+        for char in text:  # checks each character to see if anyone of it is Asian-width characters
+            if wcwidth(char) == 2:
+                is_asian = True
+                break
+
+        width_size = 20
+        if is_asian:  # must be 22 width (width_size + 2)
+            if text_len > (width_size + 2):  # add characters until 22
+                current_len = 0
+                formatted_text = u""
+                for char in text:
+                    formatted_text += char
+                    current_len += wcwidth(char)
+                    if current_len == (width_size + 2):
+                        break
+                    elif current_len == (width_size + 3):
+                        formatted_text = formatted_text[:-1] + u" "
+                        break
+                return formatted_text
+            elif text_len < (width_size + 2):  # add ideographic space (　) until 22 or 21
+                current_len = text_len
+                formatted_text = text
+                while current_len != (width_size + 2):
+                    formatted_text += u"　"
+                    current_len += 2
+                    if current_len == (width_size + 3):
+                        formatted_text = formatted_text[:-1] + u" "
+                        break
+                return formatted_text
+        elif not is_asian:  # must be 20 width
+            if text_len > width_size:
+                return text[:width_size]
+            elif text_len < width_size:
+                return text + u" " * (width_size - text_len)
+            else:
+                return text
 
     @property
     def is_claimed(self):
