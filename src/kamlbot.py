@@ -249,6 +249,7 @@ class Kamlbot(Bot):
 
         for _ in range(100):
             self.matchboard = self.get_guild(tokens["pw_server_id"]).get_channel(377280549192073216)
+            await asyncio.sleep(2)
             if self.matchboard is not None:
                 break
             print("Retrying connection to PW matchboard")
