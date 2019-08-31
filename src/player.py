@@ -34,6 +34,10 @@ class Player:
         return self.identity.display_name
 
     @property
+    def leaderboard_name(self):
+        return self.identity.leaderboard_name
+
+    @property
     def display_rank(self):
         if self.rank is None:
             return None

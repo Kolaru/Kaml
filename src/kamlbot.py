@@ -247,8 +247,12 @@ class Kamlbot(Bot):
         self.kamlboard = discord.utils.get(self.kaml_server.text_channels,
                                            name="kamlboard")
 
-        self.matchboard = discord.utils.find(lambda s: s.name == "matchboard",
-                                             self.get_guild(tokens["pw_server_id"]).text_channels)
+        for _ in range(100):
+            self.matchboard = self.get_guild(tokens["pw_server_id"]).get_channel(377280549192073216)
+            await asyncio.sleep(2)
+            if self.matchboard is not None:
+                break
+            print("Retrying connection to PW matchboard")
 
         await self.change_presence(status=discord.Status.online)
 
