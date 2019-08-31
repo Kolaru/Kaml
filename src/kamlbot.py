@@ -5,6 +5,7 @@ import os
 import progressbar
 import time
 import sys
+import asyncio
 
 from datetime import datetime
 
