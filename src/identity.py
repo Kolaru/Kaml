@@ -55,11 +55,15 @@ class Identity:
         text = self.display_name
         text_len = wcswidth(self.display_name)
 
-        is_asian = False
-        for char in text:  # checks each character to see if anyone of it is Asian-width characters
-            if wcwidth(char) == 2:
-                is_asian = True
-                break
+        one_space_count = 0
+        two_space_count = 0
+        for char in text:
+            char_len = wcwidth(char)
+            if char_len == 1:
+                one_space_count += 1
+            elif char_len == 2:
+                two_space_count += 1
+        is_asian = two_space_count > one_space_count
 
         width_size = 20
         if is_asian:  # must be 22 width (width_size + 2)

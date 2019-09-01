@@ -5,8 +5,9 @@ import os
 import progressbar
 import time
 import sys
+import asyncio
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from difflib import get_close_matches
 
@@ -42,8 +43,8 @@ class Kamlbot(Bot):
         super().__init__(*args, **kwargs)
 
         now = datetime.now()
-        nextnoon = now.replace(day=now.day + 1, hour=12, minute=0,
-                               second=0, microsecond=0)
+        nextnoon_date = now + timedelta(days=1)
+        nextnoon = nextnoon_date.replace(hour=12, minute=0, second=0, microsecond=0)
         self.loop.call_at(nextnoon.timestamp(), self.at_noon.start)
 
     @tasks.loop(hours=24)
@@ -183,9 +184,8 @@ class Kamlbot(Bot):
         logger.info("Fetching game results.")
 
         now = datetime.now()
-        last_monday = now.replace(day=now.day - now.weekday(),
-                                  hour=12, minute=0,
-                                  second=0, microsecond=0)
+        last_monday_date = now - timedelta(days=now.weekday())
+        last_monday = last_monday_date.replace(hour=12, minute=0, second=0, microsecond=0)
 
         self.ranking_configs = load_ranking_configs()
         self.ranking_configs["weekly"]["oldest_timestamp_to_consider"] = last_monday.timestamp()
