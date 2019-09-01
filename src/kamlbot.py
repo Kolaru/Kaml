@@ -1,6 +1,6 @@
+import asyncio
 import discord
 import git
-import io
 import os
 import progressbar
 import time
@@ -14,7 +14,9 @@ from discord import Embed, File
 from discord.ext import commands, tasks
 from discord.ext.commands import Bot
 
-from matplotlib import pyplot as plt
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from plotly.io import write_html
 
 from identity import IdentityManager, IdentityNotFoundError
 from messages import msg_builder
@@ -42,8 +44,12 @@ class Kamlbot(Bot):
         super().__init__(*args, **kwargs)
 
         now = datetime.now()
-        nextnoon = now.replace(day=now.day + 1, hour=12, minute=0,
-                               second=0, microsecond=0)
+        try:
+            nextnoon = now.replace(day=now.day + 1, hour=12, minute=0,
+                                   second=0, microsecond=0)
+        except ValueError:  # For last day of the month TODO fix for 31 Dec
+            nextnoon = now.replace(day=1, hour=12, minute=0, month=now.month + 1,
+                                   second=0, microsecond=0)
         self.loop.call_at(nextnoon.timestamp(), self.at_noon.start)
 
     @tasks.loop(hours=24)
@@ -449,38 +455,56 @@ async def allinfo(cmd, *nameparts):
     await cmd.channel.send(msg)
 
     if player.rank is not None:
-        fig, axes = plt.subplots(2, 2, sharex="col", sharey="row")
+        fig = make_subplots(
+            rows=2, cols=2,
+            column_widths=[0.6, 0.4],
+            row_heights=[0.4, 0.6],
+            shared_xaxes=True,
+            shared_yaxes=True)
+
+        fig.update_layout(template="plotly_dark",
+                          title="Evolution of rank and kamlpoints")
+
         skip = ranking.mingames
-        times = player.times[skip:]
-        days = (times - times[0])/(60*60*24)
+
         scores = player.scores[skip:]
         ranks = player.ranks[skip:]
-        ns = range(skip, len(scores) + skip)
+        times = [datetime.fromtimestamp(t) for t in player.times[skip:]]
+        ns = list(range(skip, len(scores) + skip))
 
-        ax = axes[0, 0]
-        ax.plot(ns, scores)
-        ax.set_ylabel("Score")
+        fig.add_trace(
+            go.Scatter(x=ns, y=scores),
+            row=1,
+            col=1
+        )
 
-        ax = axes[0, 1]
-        ax.plot(days, scores)
+        fig.add_trace(
+            go.Scatter(x=ns, y=ranks),
+            row=2,
+            col=1
+        )
 
-        ax = axes[1, 0]
-        ax.plot(ns, ranks)
-        ax.set_ylabel("Rank")
-        ax.set_xlabel("Number of games played")
+        fig.add_trace(
+            go.Scatter(x=times, y=scores),
+            row=1,
+            col=2
+        )
 
-        ax = axes[1, 1]
-        ax.plot(days, ranks)
-        ax.set_xlabel("Days since first game")
-        ax.set_ylim(ax.get_ylim()[::-1])  # ax.invert_yaxis() somehow doesn't work
+        fig.add_trace(
+            go.Scatter(x=times, y=ranks),
+            row=2,
+            col=2
+        )
 
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png')
-        buf.seek(0)
+        fig.update_yaxes(title_text="Score", row=1, col=1)
+        fig.update_yaxes(title_text="Rank", row=2, col=1, autorange="reversed")
+        fig.update_xaxes(title_text="Number of game played", row=2, col=1)
+        fig.update_xaxes(title_text="Date", row=2, col=1)
 
-        await cmd.channel.send(file=File(buf, "ranks.png"))
-
-        buf.close()
+        # TODO do something to avoid file name collision
+        write_html(fig, "temp/temp.html", auto_open=False)
+        await cmd.channel.send(file=File("temp/temp.html", "Plots.html"))
+        os.remove("temp/temp.html")
     else:
         await cmd.channel.send("Not enough game played to produce graphs.")
 
