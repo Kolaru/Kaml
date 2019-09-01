@@ -1,6 +1,7 @@
+import asyncio
 import discord
 import git
-import io
+import html
 import os
 import progressbar
 import time
@@ -14,7 +15,9 @@ from discord import Embed, File
 from discord.ext import commands, tasks
 from discord.ext.commands import Bot
 
-from matplotlib import pyplot as plt
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from plotly.io import to_html
 
 from identity import IdentityManager, IdentityNotFoundError
 from messages import msg_builder
@@ -42,8 +45,12 @@ class Kamlbot(Bot):
         super().__init__(*args, **kwargs)
 
         now = datetime.now()
-        nextnoon = now.replace(day=now.day + 1, hour=12, minute=0,
-                               second=0, microsecond=0)
+        try:
+            nextnoon = now.replace(day=now.day + 1, hour=12, minute=0,
+                                   second=0, microsecond=0)
+        except ValueError:  # For last day of the month TODO fix for 31 Dec
+            nextnoon = now.replace(day=1, hour=12, minute=0, month=now.month + 1,
+                                   second=0, microsecond=0)
         self.loop.call_at(nextnoon.timestamp(), self.at_noon.start)
 
     @tasks.loop(hours=24)
@@ -169,6 +176,36 @@ class Kamlbot(Bot):
 
         else:
             return [self.identity_manager[name] for name in names]
+
+    def get_traces(self, player, color):
+        ranking = self.rankings["main"]
+
+        skip = ranking.mingames
+
+        scores = player.scores[skip:]
+        ranks = player.ranks[skip:]
+        times = [datetime.fromtimestamp(t) for t in player.times[skip:]]
+
+        name = html.escape(player.display_name)
+
+        score = go.Scatter(x=times, y=scores,
+                           mode="markers+lines",
+                           name=name,
+                           line=dict(width=1.5, color=color),
+                           marker=dict(size=4))
+
+        rank = go.Scatter(x=times, y=ranks,
+                          mode="markers+lines",
+                          name=name,
+                          line=dict(width=1.5, color=color),
+                          marker=dict(size=4))
+
+        games = go.Histogram(x=times, name=name,
+                             marker_color=color,
+                             opacity=0.75,
+                             xbins=dict(size=60*60*24*7*1000))
+
+        return {"score": score, "rank": rank, "games": games}
 
     async def load_all(self):
         """Load everything from files and fetch missing games from the
@@ -449,41 +486,100 @@ async def allinfo(cmd, *nameparts):
     await cmd.channel.send(msg)
 
     if player.rank is not None:
-        fig, axes = plt.subplots(2, 2, sharex="col", sharey="row")
-        skip = ranking.mingames
-        times = player.times[skip:]
-        days = (times - times[0])/(60*60*24)
-        scores = player.scores[skip:]
-        ranks = player.ranks[skip:]
-        ns = range(skip, len(scores) + skip)
+        fig = make_subplots(
+            rows=3, cols=1,
+            shared_xaxes=True,
+            shared_yaxes=True)
 
-        ax = axes[0, 0]
-        ax.plot(ns, scores)
-        ax.set_ylabel("Score")
+        fig.update_yaxes(title_text="Score", row=1, col=1)
+        fig.update_yaxes(title_text="Rank", row=2, col=1, autorange="reversed")
+        fig.update_yaxes(title_text="Number of games played", row=3, col=1)
+        fig.update_xaxes(title_text="Date", row=2, col=1)
 
-        ax = axes[0, 1]
-        ax.plot(days, scores)
+        traces = kamlbot.get_traces(player, "firebrick")
 
-        ax = axes[1, 0]
-        ax.plot(ns, ranks)
-        ax.set_ylabel("Rank")
-        ax.set_xlabel("Number of games played")
+        fig.add_trace(traces["score"], row=1, col=1)
+        fig.add_trace(traces["rank"], row=2, col=1)
+        fig.add_trace(traces["games"], row=3, col=1)
 
-        ax = axes[1, 1]
-        ax.plot(days, ranks)
-        ax.set_xlabel("Days since first game")
-        ax.set_ylim(ax.get_ylim()[::-1])  # ax.invert_yaxis() somehow doesn't work
+        fig.update_layout(template="plotly_dark",
+                          title="Evolution of rank and kamlpoints",
+                          showlegend=False,
+                          hovermode="x")
 
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png')
-        buf.seek(0)
+        tempname = f"temp/{int(time.time())}.html"
+        write_html(fig, tempname, auto_open=False,
+                   config=dict(scrollZoom=True))
 
-        await cmd.channel.send(file=File(buf, "ranks.png"))
-
-        buf.close()
+        await cmd.channel.send(
+            "Here are some interactive graphs for {player.display_name}",
+            file=File(tempname, f"Infos.html"))
+        os.remove(tempname)
     else:
         await cmd.channel.send("Not enough game played to produce graphs.")
 
+
+@kamlbot.command()
+async def fullcompare(cmd, *nameparts):
+    try:
+        i1, i2 = await kamlbot.get_identities(nameparts, cmd=cmd, n=2)
+    except IdentityNotFoundError:
+        return
+
+    ranking = kamlbot.rankings["main"]
+
+    p1 = ranking[i1]
+    p2 = ranking[i2]
+
+    if (p1.rank is not None) and (p2.rank is not None):
+        fig = make_subplots(
+            rows=3, cols=1,
+            shared_xaxes=True,
+            shared_yaxes=True)
+
+        fig.update_yaxes(title_text="Score", row=1, col=1)
+        fig.update_yaxes(title_text="Rank", row=2, col=1, autorange="reversed")
+        fig.update_yaxes(title_text="Number of games played", row=3, col=1)
+        fig.update_xaxes(title_text="Date", row=3, col=1)
+
+        traces1 = kamlbot.get_traces(p1, "firebrick")
+        fig.add_trace(traces1["score"], row=1, col=1)
+        fig.add_trace(traces1["rank"], row=2, col=1)
+        fig.add_trace(traces1["games"], row=3, col=1)
+
+        traces2 = kamlbot.get_traces(p2, "royalblue")
+        fig.add_trace(traces2["score"], row=1, col=1)
+        fig.add_trace(traces2["rank"], row=2, col=1)
+        fig.add_trace(traces2["games"], row=3, col=1)
+
+        fig.update_layout(template="plotly_dark",
+                          title="Evolution of {p1.display_name} and {p2.display_name}",
+                          showlegend=False,
+                          hovermode="x",
+                          barmode="overlay")
+
+        div = to_html(fig,
+                      full_html=False,
+                      default_width="50%",
+                      default_height="80%",
+                      config=dict(scrollZoom=True))
+
+        with open("config/comparison_template.html") as file:
+            doc = file.read()
+
+        doc = doc.format(plots_div=div)
+
+        tempname = f"temp/{int(time.time())}.html"
+
+        with open(tempname, "w") as file:
+            file.write(doc)
+
+        await cmd.channel.send(
+            "Here are some interactive graphs",
+            file=File(tempname, f"Comparison.html"))
+        os.remove(tempname)
+    else:
+        await cmd.channel.send("Not enough game played to produce graphs.")
 
 @kamlbot.command(help="""
 Compare two players, including the probability of win estimated by the Kamlbot.
