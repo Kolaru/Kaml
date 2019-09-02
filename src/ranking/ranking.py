@@ -1,5 +1,5 @@
 import json
-from collections import namedtuple
+from collections import namedtuple, deque
 
 from player import Player
 from utils import ChainedDict
@@ -12,7 +12,9 @@ ScoreChange = namedtuple("ScoreChange", ["winner",
                                          "loser_rank",
                                          "winner_drank",
                                          "loser_drank",
-                                         "h2h_record"])
+                                         "h2h_record",
+                                         "h2h_history_len",
+                                         "h2h_history"])
 
 
 class AbstractState:
@@ -47,6 +49,7 @@ class AbstractRanking:
         self.description = description
 
         self.wins = {}
+        self.wins_history = {}
         self.rank_to_player = dict()
         self.identity_to_player = dict()
 
@@ -133,6 +136,16 @@ class AbstractRanking:
         else:
             self.wins[(winner, loser)] += 1
 
+        if (winner, loser) in self.wins_history or (loser, winner) in self.wins_history:
+            self.wins_history[(winner, loser)] = deque('1', maxlen=15)
+            invert_history = False
+        elif (winner, loser) in self.wins_history:
+            self.wins_history[(winner, loser)].appendleft('1')
+            invert_history = False
+        elif (loser, winner) in self.wins_history:
+            self.wins_history[(loser, winner)].appendleft('0')
+            invert_history = True
+
         self.update_players(winner, loser, timestamp=game["timestamp"])
 
         winner_dscore = winner.score - winner_old_score
@@ -182,6 +195,15 @@ class AbstractRanking:
 
         h2h_record = f"{self.wins.get((winner, loser),0)} – {self.wins.get((loser, winner),0)}"
 
+        if not invert_history:
+            h2h_history_len = len(self.wins_history[(winner, loser)])
+            h2h_history = "".join(self.wins_history[(winner, loser)])
+            h2h_history = h2h_history.replace("1", ":crown:").replace("0", ":meat_on_bone:")
+        elif invert_history:
+            h2h_history_len = len(self.wins_history[(loser, winner)])
+            h2h_history = "".join(self.wins_history[(loser, winner)])
+            h2h_history = h2h_history.replace("1", ":meat_on_bone:").replace("0", ":crown:")
+
         change = ScoreChange(winner=winner,
                              loser=loser,
                              winner_dscore=winner_dscore,
@@ -190,7 +212,9 @@ class AbstractRanking:
                              loser_rank=loser_rank,
                              winner_drank=winner_drank,
                              loser_drank=loser_drank,
-                             h2h_record=h2h_record)
+                             h2h_record=h2h_record,
+                             h2h_history_len=h2h_history_len,
+                             h2h_history=h2h_history)
 
         return change
 

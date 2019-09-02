@@ -325,8 +325,9 @@ class Kamlbot(Bot):
                         inline=False)
         embed.add_field(name=msg_builder.build(
                             "game_result_record_history_title",
-                            number="X"),
-                        value=msg_builder.build("game_result_record_history_description"),
+                            number=change.h2h_history_len),
+                        value=msg_builder.build("game_result_record_history_description",
+                                                history=change.h2h_history),
                         inline=True)
 
         embed.set_footer(text="")

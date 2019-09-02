@@ -11,7 +11,7 @@
     "game_result_record_title": "Record for these players",
     "game_result_record_description": ":ledger: All-time **{change.h2h_record}**",
     "game_result_record_history_title": "Last {number} games",
-    "game_result_record_history_description": ":crossed_swords: Coming soon...",
+    "game_result_record_history_description": "{history}",
     "generic_error": "Something wrong happened. Hopefully someone will be able to fix that shortly. <@&573205104832806912>",
     "no_alias_error": ":negative_squared_cross_mark: No in-game names are associated to your Discord profile. You can associate alias to your profile using the `!alias` command.",
     "player_not_claimed": "The in game name `{player.display_name}` is not currently claimed.",
