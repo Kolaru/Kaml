@@ -136,12 +136,11 @@ class AbstractRanking:
         else:
             self.wins[(winner, loser)] += 1
 
-        if (winner, loser) in self.wins_history or (loser, winner) in self.wins_history:
+        invert_history = False
+        if (winner, loser) not in self.wins_history or (loser, winner) not in self.wins_history:
             self.wins_history[(winner, loser)] = deque('1', maxlen=15)
-            invert_history = False
         elif (winner, loser) in self.wins_history:
             self.wins_history[(winner, loser)].appendleft('1')
-            invert_history = False
         elif (loser, winner) in self.wins_history:
             self.wins_history[(loser, winner)].appendleft('0')
             invert_history = True
