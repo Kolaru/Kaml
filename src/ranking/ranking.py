@@ -119,8 +119,8 @@ class AbstractRanking:
         return list(self.rank_to_player.values())
 
     def register_game(self, game):
-        #if game["timestamp"] <= self.oldest_timestamp_to_consider:
-        #    return None
+        if game["timestamp"] <= self.oldest_timestamp_to_consider:
+            return None
 
         self.ensure_alias_existence(game["winner"])
         self.ensure_alias_existence(game["loser"])

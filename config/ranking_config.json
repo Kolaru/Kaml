@@ -1,4 +1,4 @@
-{
+{  
     "main":{
         "type":"trueskill",
         "mu":2500,
@@ -54,7 +54,7 @@
         "sigma":833.333,
         "beta":416.667,
         "tau":8.333,
-        "mingames":0,
+        "mingames":20,
         "oldest_timestamp_to_consider":0,
         "leaderboard_chan":"leaderboard",
         "leaderboard_line":"{player.display_rank:<4} {player.score:<7.2f} ± {player.sigma:<5.2f} {player.leaderboard_name}{player.wins:<5}/{player.losses:<5}",
