@@ -1,4 +1,4 @@
-{
+{  
     "main":{
         "type":"trueskill",
         "mu":25,

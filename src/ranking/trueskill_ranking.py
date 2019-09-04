@@ -44,15 +44,14 @@ class TrueSkillRanking(AbstractRanking):
                  mu=25, sigma=25/3, beta=25/6, tau=25/300,
                  **kwargs):
 
-        super().__init__(name, identity_manager, **kwargs)
-
         self.ts_env = trueskill.TrueSkill(
             draw_probability=0.0,
             mu=mu,
             sigma=sigma,
             beta=beta,
             tau=tau)
-        self.ts_env.make_as_global()
+
+        super().__init__(name, identity_manager, **kwargs)
 
     def comparison(self, p1, p2):
         wins = self.wins.get((p1, p2), 0)
@@ -67,11 +66,11 @@ class TrueSkillRanking(AbstractRanking):
                           win_estimate=100*self.win_estimate(p1, p2))
 
     def initial_player_state(self):
-        return TrueSkillState(trueskill.Rating())
+        return TrueSkillState(self.ts_env.Rating())
 
     def update_players(self, winner, loser, timestamp=None):
-        wrating, lrating = trueskill.rate_1vs1(winner.state.rating,
-                                               loser.state.rating)
+        wrating, lrating = self.ts_env.rate_1vs1(winner.state.rating,
+                                                 loser.state.rating)
 
         wstate = TrueSkillState(wrating,
                                 rank=winner.rank,
@@ -88,5 +87,5 @@ class TrueSkillRanking(AbstractRanking):
     def win_estimate(self, p1, p2):
         delta_mu = p1.mu - p2.mu
         sum_sigma2 = p1.sigma**2 + p2.sigma**2
-        denom = sqrt(2 * BETA**2 + sum_sigma2)  # TODO Get beta from ranking
+        denom = sqrt(2 * self.ts_env.beta**2 + sum_sigma2)
         return self.ts_env.cdf(delta_mu / denom)
