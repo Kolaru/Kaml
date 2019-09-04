@@ -6,7 +6,7 @@ from math import sqrt
 from .ranking import AbstractRanking, AbstractState
 
 
-BETA = 25/6
+BETA = 2500/6
 
 Comparison = namedtuple("Comparison", ["wins",
                                        "losses",
@@ -41,7 +41,7 @@ class TrueSkillState(AbstractState):
 
 class TrueSkillRanking(AbstractRanking):
     def __init__(self, name, identity_manager,
-                 mu=25, sigma=25/3, beta=25/6, tau=25/300,
+                 mu, sigma, beta, tau,
                  **kwargs):
 
         super().__init__(name, identity_manager, **kwargs)
