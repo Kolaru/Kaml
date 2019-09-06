@@ -1,23 +1,4 @@
-from .ranking import AbstractRanking, AbstractState
-
-
-class EelState(AbstractState):
-    def __init__(self, score=0, rank=None, wins=0, losses=0):
-        self.rank = rank
-        self.wins = wins
-        self.losses = losses
-        self._score = score
-
-    def __repr__(self):
-        return f"EelState: score {self.score} ({self.wins}/{self.losses})"
-
-    @property
-    def level(self):
-        return min(self.score // 100, 6)
-
-    @property
-    def score(self):
-        return self._score
+from .ranking import AbstractRanking
 
 
 class EelRanking(AbstractRanking):

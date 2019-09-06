@@ -1,10 +1,9 @@
-import csv
 import json
 import re
 
 from collections import OrderedDict
 
-from utils import locking, logger
+from utils import logger
 
 ## Parsing
 
@@ -19,6 +18,53 @@ def clean_name(s):
     if s is None:
         return None
     return s.strip().replace(",", "_").replace("\n", " ")
+
+
+def leaderboard_name(self):
+    text = self.display_name
+    text_len = wcswidth(self.display_name)
+
+    one_space_count = 0
+    two_space_count = 0
+    for char in text:
+        char_len = wcwidth(char)
+        if char_len == 1:
+            one_space_count += 1
+        elif char_len == 2:
+            two_space_count += 1
+    is_asian = two_space_count > one_space_count
+
+    width_size = 20
+    if is_asian:  # must be 22 width (width_size + 2)
+        if text_len > (width_size + 2):  # add characters until 22
+            current_len = 0
+            formatted_text = u""
+            for char in text:
+                formatted_text += char
+                current_len += wcwidth(char)
+                if current_len == (width_size + 2):
+                    break
+                elif current_len == (width_size + 3):
+                    formatted_text = formatted_text[:-1] + u" "
+                    break
+            return formatted_text
+        elif text_len < (width_size + 2):  # add ideographic space (　) until 22 or 21
+            current_len = text_len
+            formatted_text = text
+            while current_len != (width_size + 2):
+                formatted_text += u"　"
+                current_len += 2
+                if current_len == (width_size + 3):
+                    formatted_text = formatted_text[:-1] + u" "
+                    break
+            return formatted_text
+    elif not is_asian:  # must be 20 width
+        if text_len > width_size:
+            return text[:width_size]
+        elif text_len < width_size:
+            return text + u" " * (width_size - text_len)
+        else:
+            return text
 
 
 def parse_matchboard_msg(msg):
@@ -54,7 +100,7 @@ def parse_matchboard_msg(msg):
     winner = clean_name(winner)
     loser = clean_name(loser)
 
-    return OrderedDict(timestamp=msg.created_at.timestamp(),
+    return OrderedDict(timestamp=int(msg.created_at.timestamp()),
                        id=msg.id,
                        winner=winner,
                        loser=loser)
@@ -83,61 +129,8 @@ async def fetch_game_results(matchboard, after=None):
         if game is None:
             continue
 
+        game["msg_id"] = msg.id
         game_results.append(game)
-
-    return game_results
-
-
-async def get_game_results(matchboard):
-    # First retrieve saved games.
-    loaded_results = await load_game_results()
-
-    if len(loaded_results) > 0:
-        last_id = int(loaded_results[-1]["id"])
-        last_message = await matchboard.fetch_message(last_id)
-    else:
-        last_message = None
-
-    # Second fetch messages not yet saved from the matchboard.
-    # New results are directly saved.
-    logger.info("Fetching missing results from matchboard.")
-
-    fetched_game_results = await fetch_game_results(matchboard, after=last_message)
-
-    logger.info(f"{len(fetched_game_results)} new results fetched from matchboard.")
-
-    await save_games(fetched_game_results)
-
-    return loaded_results + fetched_game_results
-
-
-def game_results_writer(file):
-    """Return a `Writer` for game results for a given file.
-
-    Using this ensure consistent formatting of the results.
-    """
-    return csv.DictWriter(file, fieldnames=["timestamp", "id", "winner", "loser"])
-
-
-@locking("raw_results.csv")
-async def load_game_results():
-    try:
-        logger.info("Retrieving saved games.")
-        with open("data/raw_results.csv", "r", encoding="utf-8", newline="") as file:
-            game_results = list(csv.DictReader(file))
-
-            logger.info(f"{len(game_results)} game results retrieved from save.")
-
-    except FileNotFoundError:
-        logger.warning("File `raw_results.csv` not found, creating a new one.")
-
-        with open("data/raw_results.csv", "w", encoding="utf-8", newline="") as file:
-            writer = game_results_writer(file)
-            writer.writeheader()
-            game_results = []
-
-    for k, game in enumerate(game_results):
-        game_results[k]["timestamp"] = float(game["timestamp"])
 
     return game_results
 
@@ -152,20 +145,3 @@ def load_tokens():
     with open("config/tokens.json", "r", encoding="utf-8") as file:
         d = json.load(file)
     return d
-
-
-@locking("raw_results.csv")
-async def save_games(games):
-    with open("data/raw_results.csv", "a",
-              encoding="utf-8", newline="") as file:
-        writer = game_results_writer(file)
-
-        for game in games:
-            writer.writerow(game)
-
-
-def save_single_game(game):
-    with open("data/raw_results.csv", "a",
-              encoding="utf-8", newline="") as file:
-        writer = game_results_writer(file)
-        writer.writerow(game)

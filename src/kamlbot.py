@@ -17,12 +17,12 @@ from discord.ext.commands import Bot
 
 from matplotlib import pyplot as plt
 
-from identity import IdentityManager, IdentityNotFoundError
+from data_manager import DataManager
+from identity import IdentityNotFoundError
 from messages import msg_builder
 from ranking import ranking_types
 from save_and_load import (load_ranking_configs, load_tokens,
-                           parse_matchboard_msg, get_game_results,
-                           save_single_game)
+                           parse_matchboard_msg, fetch_game_results)
 from utils import connect, emit_signal, logger, partition
 
 
@@ -36,7 +36,8 @@ class Kamlbot(Bot):
         connect("rankings_updated", self.edit_leaderboard)
         connect("game_registered", self.send_game_result)
 
-        self.identity_manager = None
+        self.db = DataManager()
+
         self.rankings = dict()
         self.is_ready = False
 
@@ -44,7 +45,8 @@ class Kamlbot(Bot):
 
         now = datetime.now()
         nextnoon_date = now + timedelta(days=1)
-        nextnoon = nextnoon_date.replace(hour=12, minute=0, second=0, microsecond=0)
+        nextnoon = nextnoon_date.replace(hour=12, minute=0, second=0,
+                                         microsecond=0)
         self.loop.call_at(nextnoon.timestamp(), self.at_noon.start)
 
     @tasks.loop(hours=24)
@@ -62,8 +64,8 @@ class Kamlbot(Bot):
 
                 for leaderboard_msg in config["leaderboard_msgs"]:
                     leaderboard_msg["msg"] = await chan.send(
-                        "Temporary message, will be edited with the leaderboard "
-                        "once the bot is ready.")
+                        "Temporary message, will be edited with the "
+                        "leaderboard once the bot is ready.")
 
             config = self.ranking_configs["weekly"]
             self.rankings["weekly"] = ranking_types[config["type"]](
@@ -86,13 +88,6 @@ class Kamlbot(Bot):
             async for msg in chan.history():
                 await msg.delete()
 
-    async def debug(self, msg):
-        """Log the given `msg` to the default logger with debug level and
-        also send the message to the debug discord chan.
-        """
-        await self.debug_chan.send(msg)
-        logger.debug(msg)
-
     async def edit_leaderboard(self):
         """Edit the leaderboard messages with the current content."""
         for ranking in self.rankings.values():
@@ -100,6 +95,13 @@ class Kamlbot(Bot):
                 await msg["msg"].edit(content=msg["content"])
 
     def find_names(self, nameparts, n=1):
+        req = self.db.execute(
+            """
+            SELECT alias
+            FROM aliases
+            """)
+        aliases = [row[0] for row in req]
+
         k = len(nameparts)
 
         if k == n:
@@ -115,7 +117,7 @@ class Kamlbot(Bot):
                 s += p
                 names.append(name)
 
-                if name not in self.identity_manager.aliases:
+                if name not in aliases:
                     allgood = False
                     break
 
@@ -124,41 +126,33 @@ class Kamlbot(Bot):
 
         return None
 
-    async def get_identities(self, nameparts, cmd=None, n=1):
+    async def get_ids(self, nameparts, cmd=None, n=1):
         if isinstance(nameparts, str):
             nameparts = [nameparts]
 
         if len(nameparts) == 0:
             if cmd is None:
-                logger.error("get_identities called without name nor command")
+                logger.error("get_ids called without name nor command")
                 await msg_builder.send(
                         cmd.channel,
                         "generic_error")
 
                 raise IdentityNotFoundError()
 
-            try:
-                identity = self.identity_manager[cmd.author.id]
-                return (identity,)
-            except IdentityNotFoundError:
+            player_id = self.db.id_from_discord_id(cmd.author.id)
+
+            if player_id is None:
                 await msg_builder.send(
                         cmd.channel,
                         "no_alias_error")
-
-                raise
+                raise IdentityNotFoundError()
+            else:
+                return (player_id,)
 
         if len(nameparts) == n:
-            try:
-                return [self.identity_manager[name] for name in nameparts]
-            except IdentityNotFoundError as err:
-                await msg_builder.send(
-                        cmd.channel,
-                        "player_not_found_error",
-                        player_name=err.searchkey)
-
-                raise
-
-        names = self.find_names(nameparts, n=n)
+            names = nameparts
+        else:
+            names = self.find_names(nameparts, n=n)
 
         if names is None:
             await msg_builder.send(
@@ -166,10 +160,29 @@ class Kamlbot(Bot):
                     "unable_to_build_alias",
                     n=n)
 
-            raise IdentityNotFoundError(" ".join(nameparts))
+            raise IdentityNotFoundError()
 
-        else:
-            return [self.identity_manager[name] for name in names]
+        req = self.db.executemany(
+            """
+            SELECT player_id
+            FROM aliases
+            WHERE alias=name
+            """,
+            [(name,) for name in names]
+            )
+
+        player_ids = list(zip(*req))[0]
+
+        for (pid, name) in zip(player_ids, nameparts):
+            if pid is None:
+                await msg_builder.send(
+                        cmd.channel,
+                        "player_not_found_error",
+                        player_name=name)
+
+            raise IdentityNotFoundError()
+
+        return player_ids
 
     async def load_all(self):
         """Load everything from files and fetch missing games from the
@@ -178,14 +191,13 @@ class Kamlbot(Bot):
         Erase the current state of the Kamlbot.
         """
         msg_builder.reload()
-        self.identity_manager = IdentityManager()
-        self.identity_manager.load_data()
 
         logger.info("Fetching game results.")
 
         now = datetime.now()
         last_monday_date = now - timedelta(days=now.weekday())
-        last_monday = last_monday_date.replace(hour=12, minute=0, second=0, microsecond=0)
+        last_monday = last_monday_date.replace(hour=12, minute=0, second=0,
+                                               microsecond=0)
 
         self.ranking_configs = load_ranking_configs()
         self.ranking_configs["weekly"]["oldest_timestamp_to_consider"] = last_monday.timestamp()
@@ -206,9 +218,26 @@ class Kamlbot(Bot):
                                     self.identity_manager,
                                     **config)
 
-        game_results = await get_game_results(self.matchboard)
-        for game in progressbar.progressbar(game_results):
-            await self.register_game(game, save=False, signal_update=False)
+        req = self.db.execute(
+            """
+            SELECT TOP 1 msg_id
+            FROM games
+            ORDER BY timestamp DESC
+            """
+            )
+
+        res = req.fetchone()
+        if res is None:
+            last_msg = None
+        else:
+            last_msg = await self.matchboard.fetch_message(res[0])
+
+        fetched_games = await fetch_game_results(self.matchboard,
+                                                 after=last_msg)
+        logger.info(f"{len(fetched_games)} new results fetched from matchboard.")
+
+        for game in progressbar.progressbar(fetched_games):
+            await self.register_game(game, signal_update=False)
 
         await self.update_display_names()
         await self.edit_leaderboard()
@@ -279,27 +308,40 @@ class Kamlbot(Bot):
             await chan.send(f"Initialization finished in {dt:0.2f} s.")
             self.is_ready = True
 
-    async def register_game(self, game, save=True, signal_update=True):
+    async def register_game(self, game, signal_update=True):
         if game["winner"] == "" or game["loser"] == "":
             return None
 
         if game["winner"] is None or game["loser"] is None:
             return None
 
-        if save:
-            save_single_game(game)
+        game["winner_id"] = self.id_from_alias(game["winner"])
+        game["loser_id"] = self.id_from_alias(game["loser"])
+
+        with self.db:
+            self.db.execute(
+                """
+                INSERT INTO games (msg_id, timestamp, winner_id, loser_id)
+                VALUES (?, ?, ?, ?)
+                """,
+                (game["msg_id"],
+                 game["timestamp"],
+                 game["winner_id"],
+                 game["loser_id"])
+                )
 
         for name, ranking in self.rankings.items():
-            change = ranking.register_game(game)
+            ranking.register_game(game)
 
-            if signal_update and name == "main":
-                await emit_signal("game_registered", change)
+        if signal_update:
+            await emit_signal("game_registered", game)
 
         if signal_update:
             await emit_signal("rankings_updated")
 
     async def send_game_result(self, change):
         """Create a new message in the KAML matchboard."""
+        return  # TODO make sure this works again
 
         embed = Embed(title=msg_builder.build("game_result_title"),
                       color=0xf36541,
@@ -338,9 +380,29 @@ class Kamlbot(Bot):
         Currently fetch the server nickname of every registered players.
         """
 
-        for identity in self.identity_manager.claimed_identities:
-            user = await self.fetch_user(identity.discord_id)
-            identity.display_name = user.display_name
+        req = self.db.execute(
+            """
+            SELECT player_id, discord_id
+            FROM players
+            WHERE discord_id IS NOT NULL
+            """
+            )
+
+        new_data = []
+
+        for player_id, discord_id in req:
+            user = await self.fetch_user(discord_id)
+            new_data.append((player_id, user.display_name))
+
+        with self.db:
+            self.db.executemany(
+                """
+                UPDATE players
+                SET display_name=?
+                WHERE player_id=?
+                """,
+                new_data
+                )
 
 
 kamlbot = Kamlbot(command_prefix="!")

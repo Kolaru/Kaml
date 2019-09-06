@@ -1,11 +1,18 @@
-import csv
+import os
 import sqlite3
+
+DB_PATH = "data/database.db"
 
 
 class DataManager:
     def __init__(self):
-        self.db = sqlite3.connect("data/database.db")
+        create_new = not os.isfile(DB_PATH)
+        self.db = sqlite3.connect(DB_PATH)
 
+        if create_new:
+            self.create_tables()
+
+    def create_tables(self):
         with self.db:
             self.db.execute(
                 """
@@ -24,40 +31,25 @@ class DataManager:
                 (
                     alias text NOT NULL UNIQUE,
                     player_id int,
-                    FOREIGN KEY (player_id) REFERENCES identities (player_id)
+                    FOREIGN KEY (player_id) REFERENCES players (player_id)
                 )
                 """)
 
             self.db.execute(
                 """
-                CREATE TABLE main_ranking
+                CREATE TABLE games
                 (
-                    player_id int,
-                    rank int UNIQUE,
-                    mu real NOT NULL,
-                    sigma real NOT NULL,
-                    FOREIGN KEY (player_id) REFERENCES identities (player_id)
-                )
-                """)
-
-            # All field refer to the value before the game happened
-            self.db.execute(
-                """
-                CREATE TABLE main_history
-                (
+                    game_id int,
+                    msg_id int UNIQUE,
                     timestamp int NOT NULL,
-                    winner_id int,
-                    winner_rank int,
-                    winner_mu real NOT NULL,
-                    winner_sigma real NOT NULL,
-                    loser_id int,
-                    loser_rank int,
-                    loser_mu real NOT NULL,
-                    loser_sigma real NOT NULL,
-                    FOREIGN KEY (winner_id) REFERENCES identities (player_id),
-                    FOREIGN KEY (loser_id) REFERENCES identities (player_id)
+                    winner_id int NOT NULL,
+                    loser_id int NOT NULL,
+                    PRIMARY KEY (game_id),
+                    FOREIGN KEY (winner_id) REFERENCES players (player_id),
+                    FOREIGN KEY (loser_id) REFERENCES players (player_id)
                 )
-                """)
+                """
+                )
 
         with open("data/aliases.csv", "r", encoding="utf-8") as file:
             for line in file:
@@ -85,6 +77,9 @@ class DataManager:
                         """,
                         [(alias.strip(), player_id) for alias in aliases])
 
+    def execute(self, cmd, arg):
+        return self.db.execute(cmd, arg)
+
     def id_from_alias(self, alias):
         req = self.db.execute(
             """
@@ -92,7 +87,7 @@ class DataManager:
             FROM aliases
             WHERE alias=?
             """,
-            alias
+            (alias,)
             )
 
         result = req.fetchone()
@@ -100,114 +95,36 @@ class DataManager:
             with self.db:
                 req = self.db.execute(
                     """
-                    INSERT INTO players
-                    VALUES ()
+                    INSERT INTO players (display_name)
+                    VALUES (?)
+                    """,
+                    (alias,))
+
+                player_id = req.lastrowid
+
+                self.db.execute(
                     """
+                    INSERT INTO aliases (player_id, alias)
+                    VALUES (?, ?)
+                    """,
+                    (player_id, alias)
                     )
 
-            return req.lastrowid
+            return player_id
         else:
             return result[0]
 
-    def register_game(self, game, ranking):
-        if game["timestamp"] <= self.oldest_timestamp_to_consider:
-            return None
-
-        winner_id = self.id_from_alias[game["winner"]]
-        loser_id = self.id_from_alias[game["loser"]]
-
-        self.update_players_data(winner_id, loser_id)
-
-        with self.db:
-            self.db.execute(
-                """
-                INSERT OR IGNORE INTO main_ranking (player_id, rank, mu, sigma)
-                VALUES (?, ?, ?, ?)
-                """,
-                (winner_id, *ranking.initial_state)
-                )
-
-            self.db.execute(
-                """
-                UPDATE main_ranking (rank, mu, sigma)
-                VALUES (?, ?, ?)
-                WHERE player_id=?
-                """,
-                (rank, mu, sigma, player_id)
-            )
-        loser = self.alias_to_player[game["loser"]]
-
-        winner_old_score = winner.score
-        loser_old_score = loser.score
-
-        if (winner, loser) not in self.wins:
-            self.wins[(winner, loser)] = 1
-        else:
-            self.wins[(winner, loser)] += 1
-
-        self.update_players(winner, loser, timestamp=game["timestamp"])
-
-        winner_dscore = winner.score - winner_old_score
-        loser_dscore = loser.score - loser_old_score
-
-        winner_old_rank = winner.display_rank
-        loser_old_rank = loser.display_rank
-
-        self.update_ranks(winner, winner_dscore)
-        self.update_ranks(loser, loser_dscore)
-
-        winner_rank = winner.display_rank
-        loser_rank = loser.display_rank
-
-    def fetch_player_data(self, player_id):
+    def id_from_discord_id(self, discord_id):
         req = self.db.execute(
             """
-            SELECT rank, mu, sigma, score
-            FROM main_ranking
-            WHERE player_id=?
+            SELECT player_id
+            FROM players
+            WHERE discord_id=?
             """,
-            (player_id,)
-            )
+            (discord_id,))
 
         result = req.fetchone()
         if result is None:
-            return {"rank": None,
-                    "mu": 25,
-                    "sigma": 25/3,
-                    "score": 0}
+            return None
         else:
-            return result
-
-    def update_players_data(self, winner_id, loser_id, timestamp):
-        winner_data = self.fetch_player_data(winner_id)
-        loser_data = self.fetch_player_data(loser_id)
-
-        winner_rating = trueskill.Rating(mu=winner_data["mu"],
-                                         sigma=loser_data["sigma"])
-        loser_rating = trueskill.Rating(mu=winner_data["mu"],
-                                        sigma=loser_data["sigma"])
-
-        winner_rating, loser_rating = trueskill.rate_1vs1(winner_rating,
-                                                          loser_rating)
-
-        with self.db:
-            self.db.execute(
-                """
-                INSERT OR IGNORE INTO main_ranking (player_id)
-                VALUES (?)
-                """,
-                (winner_id,)
-                )
-
-            self.db.execute(
-                """
-                UPDATE main_ranking (rank, mu, sigma, score)
-                VALUES (?, ?, ?)
-                WHERE player_id=?
-                """,
-                (rank, mu, sigma, score, player_id)
-            )
-
-
-
-d = DataManager()
+            return result[0]
