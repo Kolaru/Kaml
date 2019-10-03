@@ -8,10 +8,10 @@ from utils import locking, logger
 
 ## Parsing
 
-WIN_PATTERN = re.compile(r":crown: \*\*(.+)\*\* \(.+\) vs \*\*(.+)\*\* \(.+\)")
-LOSS_PATTERN = re.compile(r"\*\*(.+)\*\* \(.+\) vs :crown: \*\*(.+)\*\* \(.+\)")
-HALF_WIN_PATTERN = re.compile(r":crown: \*\*(.+)\*\* \(.+\) has won a match!")
-HALF_LOSS_PATTERN = re.compile(r"\*\*(.+)\*\* \(.+\) has lost a match.")
+WIN_PATTERN = re.compile(r":crown: \*\*(.+)\*\* \(\d+\) vs \*\*(.+)\*\* \(\d+\)")
+LOSS_PATTERN = re.compile(r"\*\*(.+)\*\* \(\d+\) vs :crown: \*\*(.+)\*\* \(\d+\)")
+HALF_WIN_PATTERN = re.compile(r":crown: \*\*(.+)\*\* \(\d+\) has won a match!")
+HALF_LOSS_PATTERN = re.compile(r"\*\*(.+)\*\* \(\d+\) has lost a match\.")
 MENTION_PATTERN = re.compile(r"<@(.+)>")
 
 
