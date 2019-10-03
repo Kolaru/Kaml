@@ -136,6 +136,12 @@ class AbstractRanking:
         else:
             self.wins[(winner, loser)] += 1
 
+        # calculate total games played and win % for allinfo rivals
+        total_played = self.wins[(winner, loser)] + self.wins.get((loser, winner), 0)
+        winner.games_against[loser] = loser.games_against[winner] = total_played
+        winner.win_percents[loser] = self.wins[(winner, loser)] / total_played
+        loser.win_percents[winner] = self.wins.get((loser, winner), 0) / total_played
+
         invert_history = False
         if (winner, loser) not in self.wins_history and (loser, winner) not in self.wins_history:
             self.wins_history[(winner, loser)] = deque('1', maxlen=15)

@@ -1,7 +1,7 @@
 import numpy as np
 import time
 
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 
 class Player:
@@ -14,6 +14,8 @@ class Player:
         self.identity = player_identity
         self.saved_states = OrderedDict()
         self.state = initial_state
+        self.win_percents = defaultdict(float)
+        self.games_against = defaultdict(int)
 
     def __getattr__(self, attr):
         return getattr(self.state, attr)
