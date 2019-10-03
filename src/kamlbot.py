@@ -22,7 +22,7 @@ from messages import msg_builder
 from ranking import ranking_types
 from save_and_load import (load_ranking_configs, load_tokens,
                            parse_matchboard_msg, get_game_results,
-                           save_single_game)
+                           save_single_game, get_current_form)
 from utils import connect, emit_signal, logger, partition
 
 
@@ -563,23 +563,7 @@ async def rank(cmd, *nameparts):
 
     player = kamlbot.rankings["main"][identity]
 
-    # get current record of the player
-    no_of_games = min(player.total_games, 10)
-    wins = player.wins
-    losses = player.losses
-
-    current_form = ""
-    for t in reversed(player.times[-no_of_games:]):  # get the times of the last games played
-        # get record of the current time state
-        tstate_wins = player.saved_states[t].wins
-        tstate_losses = player.saved_states[t].losses
-        if tstate_wins < wins:  # player has won the previous game
-            current_form += ":crown:"
-        elif tstate_losses < losses:  # player has lost the previous game
-            current_form += ":meat_on_bone:"
-        # update record for the next iteration
-        wins = tstate_wins
-        losses = tstate_losses
+    current_form, no_of_games = get_current_form(player)
 
     msg = msg_builder.build("player_rank",
                             player=player)
