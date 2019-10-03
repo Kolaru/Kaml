@@ -1,4 +1,4 @@
-{  
+{
     "main":{
         "type":"trueskill",
         "mu":25,
@@ -67,6 +67,75 @@
                 "type":"content",
                 "min":1,
                 "max":25
+            }
+        ]
+    },
+    "eel":{
+        "type":"eel",
+        "mingames":20,
+        "oldest_timestamp_to_consider":1561402200,
+        "leaderboard_chan":"exp_leaderboard",
+        "leaderboard_line":"{player.display_rank:<4} {player.score:<7} {player.leaderboard_name}{player.wins:<5}/{player.losses:<5}",
+        "leaderboard_msgs":[
+            {
+                "type":"header",
+                "content":"**Experimental Eel ranking** -- Only consider season 3"
+            },
+            {
+                "type":"content",
+                "min":1,
+                "max":25
+            },
+            {
+                "type":"content",
+                "min":26,
+                "max":50
+            }
+        ]
+    },
+    "duchu":{
+        "type":"duchu",
+        "mingames":20,
+        "oldest_timestamp_to_consider":0,
+        "leaderboard_chan":"exp_leaderboard",
+        "leaderboard_line":"{player.display_rank:<4} {player.score:<7} {player.leaderboard_name}{player.wins:<5}/{player.losses:<5}",
+        "leaderboard_msgs":[
+            {
+                "type":"header",
+                "content":"**Experimental Duchu ranking** -- All time"
+            },
+            {
+                "type":"content",
+                "min":1,
+                "max":25
+            },
+            {
+                "type":"content",
+                "min":26,
+                "max":50
+            }
+        ]
+    },
+    "duchu_season3":{
+        "type":"duchu",
+        "mingames":20,
+        "oldest_timestamp_to_consider":1561402200,
+        "leaderboard_chan":"exp_leaderboard",
+        "leaderboard_line":"{player.display_rank:<4} {player.score:<7} {player.leaderboard_name}{player.wins:<5}/{player.losses:<5}",
+        "leaderboard_msgs":[
+            {
+                "type":"header",
+                "content":"**Experimental Duchu ranking** -- Only consider season 3"
+            },
+            {
+                "type":"content",
+                "min":1,
+                "max":25
+            },
+            {
+                "type":"content",
+                "min":26,
+                "max":50
             }
         ]
     }
