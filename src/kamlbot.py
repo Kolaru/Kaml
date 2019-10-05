@@ -469,6 +469,14 @@ async def allinfo(cmd, *nameparts):
             h2h_record = str(ranking.wins[(player, opponent)]) + " – " + str(ranking.wins[(opponent, player)])
             rivals_msg += "**" + opp_name + "**\t" + h2h_record + " (" + '{:.2f}'.format(rivals_dict[opponent][1]*100) + "%)\n"
 
+    # Obtain and Build Cool Stats message
+    first_game_date = time.strftime("%d %b %Y", time.gmtime(list(player.saved_states.items())[0][0]))
+    last_game_date = time.strftime("%d %b %Y", time.gmtime(list(player.saved_states.items())[-1][0]))
+    coolstats_msg = "First Game: **" + first_game_date + "**\n"
+    coolstats_msg += "Last Game: **" + last_game_date + "**\n"
+    coolstats_msg += "Longest Win Streak: **" + str(player.longest_win_streak) + "**\n"
+    coolstats_msg += "Longest Lose Streak: **" + str(player.longest_lose_streak) + "**"
+
     embed = Embed(title=player.display_name, color=0xf36541)
     embed.add_field(name="Statistics",
                     value=msg_builder.build(
@@ -480,6 +488,9 @@ async def allinfo(cmd, *nameparts):
                     inline=True)
     embed.add_field(name="Rivals",
                     value=rivals_msg,
+                    inline=True)
+    embed.add_field(name="Cool Stats",
+                    value=coolstats_msg,
                     inline=True)
     
     await cmd.channel.send(embed=embed)

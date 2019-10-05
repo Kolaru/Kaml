@@ -16,6 +16,10 @@ class Player:
         self.state = initial_state
         self.win_percents = defaultdict(float)
         self.games_against = defaultdict(int)
+        self.current_win_streak = 0
+        self.longest_win_streak = 0
+        self.current_lose_streak = 0
+        self.longest_lose_streak = 0
 
     def __getattr__(self, attr):
         return getattr(self.state, attr)
