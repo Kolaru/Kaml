@@ -598,7 +598,7 @@ async def rank(cmd, *nameparts):
 
     player = kamlbot.rankings["main"][identity]
 
-    current_form, no_of_games = get_current_form(player)
+    current_form, no_of_games = get_current_form(player, 15)
 
     msg = msg_builder.build("player_rank",
                             player=player)
