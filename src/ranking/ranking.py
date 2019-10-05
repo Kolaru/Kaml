@@ -155,12 +155,12 @@ class AbstractRanking:
 
         winner.current_win_streak += 1
         winner.current_lose_streak = 0
-        if winner.current_win_streak > winner.longest_win_streak:
-            winner.longest_win_streak = winner.current_win_streak
+        winner.longest_win_streak = max(winner.longest_win_streak, 
+                                        winner.current_win_streak)
         loser.current_lose_streak += 1
         loser.current_win_streak = 0
-        if loser.current_lose_streak > loser.longest_lose_streak:
-            loser.longest_lose_streak = loser.current_lose_streak
+        loser.longest_lose_streak = max(loser.longest_lose_streak,
+                                        loser.current_lose_streak)
 
         winner_dscore = winner.score - winner_old_score
         loser_dscore = loser.score - loser_old_score
