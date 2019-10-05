@@ -449,8 +449,6 @@ async def allinfo(cmd, *nameparts):
 
     await cmd.channel.send(msg)
 
-    current_form, no_of_games = get_current_form(player, 20, True)
-
     # Obtaining Rivals info
     rivals_dict = {key: (player.games_against[key], player.win_percents[key]) for key in player.win_percents}
     rivals_dict = {k: (v[0], v[1]) for k, v in rivals_dict.items() if v[0] > 8}  # only include 9 or more games played against
@@ -483,8 +481,8 @@ async def allinfo(cmd, *nameparts):
                           "allinfo_statistics",
                           player=player),
                     inline=True)
-    embed.add_field(name="Last {} games".format(no_of_games),
-                    value=current_form,
+    embed.add_field(name="Peak",
+                    value="a",
                     inline=True)
     embed.add_field(name="Rivals",
                     value=rivals_msg,
