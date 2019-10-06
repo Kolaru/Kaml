@@ -191,7 +191,7 @@ class AbstractRanking:
         elif winner_rank < winner_old_rank:  # they are placed higher
             winner_drank = "▲" + str(abs(winner_old_rank - winner_rank))
         else:  # they are placed lower
-            winner_drank = "▼" + str(winner.rank - winner_old_rank)
+            winner_drank = "▼" + str(winner_rank - winner_old_rank)
 
         # Scenario 1
         if loser.total_games < self.mingames:
@@ -205,7 +205,7 @@ class AbstractRanking:
         elif loser_rank > loser_old_rank:  # they have placed lower
             loser_drank = "▼" + str(abs(loser_rank - loser_old_rank))
         else:  # they have placed higher
-            loser_drank = "▲" + str(loser_old_rank - loser.rank)
+            loser_drank = "▲" + str(loser_old_rank - loser_rank)
 
         h2h_record = f"{self.wins.get((winner, loser),0)} – {self.wins.get((loser, winner),0)}"
 
