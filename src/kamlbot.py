@@ -467,6 +467,30 @@ async def allinfo(cmd, *nameparts):
             h2h_record = str(ranking.wins[(player, opponent)]) + " – " + str(ranking.wins[(opponent, player)])
             rivals_msg += "**" + opp_name + "**\t" + h2h_record + " (" + '{:.2f}'.format(rivals_dict[opponent][1]*100) + "%)\n"
 
+    # Obtain and Build Peak message
+    compare_rank = 0
+    peak_rank = len(ranking.rank_to_player)
+    for timestamp, drank in list(player.delta_ranks.items()):
+        compare_rank += drank
+        if compare_rank < peak_rank:
+            peak_rank = compare_rank
+            peak_rank_time = time.strftime("%d %b %Y", time.gmtime(timestamp))
+    peak_rank = str(peak_rank)
+
+    peak_score = max(player.scores)
+    for timestamp, tsstate in list(player.states.items()):
+        if tsstate.score == peak_score:
+            peak_score_timestamp = timestamp
+            peak_score_sigma = tsstate.sigma
+            break
+    peak_score_time = time.strftime("%d %b %Y", time.gmtime(peak_score_timestamp))
+    
+    peak_msg = ":military_medal: **{}** (on {})\n:camel: **{:.2f} (±{:.2f})** (on {})".format(peak_rank,
+                                                                                         peak_rank_time,
+                                                                                         peak_score,
+                                                                                         peak_score_sigma,
+                                                                                         peak_score_time)
+
     # Obtain and Build Cool Stats message
     first_game_date = time.strftime("%d %b %Y", time.gmtime(list(player.saved_states.items())[0][0]))
     last_game_date = time.strftime("%d %b %Y", time.gmtime(list(player.saved_states.items())[-1][0]))
@@ -482,7 +506,7 @@ async def allinfo(cmd, *nameparts):
                           player=player),
                     inline=True)
     embed.add_field(name="Peak",
-                    value="a",
+                    value=peak_msg,
                     inline=True)
     embed.add_field(name="Rivals",
                     value=rivals_msg,
