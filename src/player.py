@@ -20,6 +20,7 @@ class Player:
         self.longest_win_streak = 0
         self.current_lose_streak = 0
         self.longest_lose_streak = 0
+        self.delta_ranks = OrderedDict()
 
     def __getattr__(self, attr):
         return getattr(self.state, attr)

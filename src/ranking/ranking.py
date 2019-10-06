@@ -168,8 +168,8 @@ class AbstractRanking:
         winner_old_rank = winner.display_rank
         loser_old_rank = loser.display_rank
 
-        self.update_ranks(winner, winner_dscore)
-        self.update_ranks(loser, loser_dscore)
+        self.update_ranks(winner, winner_dscore, game["timestamp"])
+        self.update_ranks(loser, loser_dscore, game["timestamp"])
 
         winner_rank = winner.display_rank
         loser_rank = loser.display_rank
@@ -185,13 +185,16 @@ class AbstractRanking:
         # Scenario 2
         elif winner.total_games == self.mingames or winner_old_rank is None:
             winner_drank = "▲" + str(winner_rank)
+            winner.delta_ranks[game["timestamp"]] = winner_rank
         # Scenario 3
         elif winner_rank == winner_old_rank:
             winner_drank = "➤0"
         elif winner_rank < winner_old_rank:  # they are placed higher
             winner_drank = "▲" + str(abs(winner_old_rank - winner_rank))
+            winner.delta_ranks[game["timestamp"]] = -(winner_old_rank - winner_rank)
         else:  # they are placed lower
             winner_drank = "▼" + str(winner_rank - winner_old_rank)
+            winner.delta_ranks[game["timestamp"]] = (winner_rank - winner_old_rank)
 
         # Scenario 1
         if loser.total_games < self.mingames:
@@ -199,13 +202,16 @@ class AbstractRanking:
         # Scenario 2
         elif loser.total_games == self.mingames or loser_old_rank is None:
             loser_drank = "▲" + str(loser_rank)
+            loser.delta_ranks[game["timestamp"]] = loser_rank
         # Scenario 3
         elif loser_rank == loser_old_rank:
             loser_drank = "➤0"
         elif loser_rank > loser_old_rank:  # they have placed lower
             loser_drank = "▼" + str(abs(loser_rank - loser_old_rank))
+            loser.delta_ranks[game["timestamp"]] = loser_rank - loser_old_rank
         else:  # they have placed higher
             loser_drank = "▲" + str(loser_old_rank - loser_rank)
+            loser.delta_ranks[game["timestamp"]] = -(loser_old_rank - loser_rank)
 
         h2h_record = f"{self.wins.get((winner, loser),0)} – {self.wins.get((loser, winner),0)}"
 
@@ -240,7 +246,7 @@ class AbstractRanking:
     def update_players(self, winner, loser, timestamp=None):
         raise NotImplementedError()
 
-    def update_ranks(self, player, dscore):
+    def update_ranks(self, player, dscore, timestamp):
         if player.total_games < self.mingames:
             return
 
@@ -278,6 +284,10 @@ class AbstractRanking:
         while k > 0 and k < N - 1 and other.score*inc > player.score*inc:
             other.rank = k - inc
             self.rank_to_player[other.rank] = other
+            if timestamp not in other.delta_ranks.keys():
+                other.delta_ranks[timestamp] = -inc
+            else:
+                other.delta_ranks[timestamp] += -inc
 
             k += inc
             other = self.rank_to_player[k]
@@ -287,6 +297,10 @@ class AbstractRanking:
         if other_score*inc > player_score*inc:
             other.rank = k - inc
             self.rank_to_player[other.rank] = other
+            if timestamp not in other.delta_ranks.keys():
+                other.delta_ranks[timestamp] = -inc
+            else:
+                other.delta_ranks[timestamp] += -inc
         else:
             k -= inc
 
