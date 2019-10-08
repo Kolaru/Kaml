@@ -25,5 +25,49 @@
                 "max":50
             }
         ]
+    },
+    "season3":{
+        "type":"trueskill",
+        "mu":25,
+        "sigma":8.333,
+        "beta":4.167,
+        "tau":0.08333,
+        "mingames":20,
+        "oldest_timestamp_to_consider":1561402200,
+        "leaderboard_chan":"leaderboard",
+        "leaderboard_line":"{rank:<4} {score:<7.2f} ± {sigma:<5.2f} {leaderboard_name} {wins:<5}/{losses:<5}",
+        "leaderboard_msgs":[
+            {
+                "type":"header",
+                "content":"**Season 3 ranking**"
+            },
+            {
+                "type":"content",
+                "min":1,
+                "max":25
+            }
+        ]
+    },
+    "weekly":{
+        "type":"trueskill",
+        "mu":25,
+        "sigma":8.333,
+        "beta":4.167,
+        "tau":0.08333,
+        "mingames":0,
+        "oldest_timestamp_to_consider":0,
+        "leaderboard_chan":"leaderboard",
+        "leaderboard_line":"{rank:<4} {score:<7.2f} ± {sigma:<5.2f} {leaderboard_name} {wins:<5}/{losses:<5}",
+        "leaderboard_msgs":[
+            {
+                "type":"header",
+                "content":"**Weekly ranking**"
+            },
+            {
+                "type":"content",
+                "min":1,
+                "max":25
+            }
+        ]
     }
 }

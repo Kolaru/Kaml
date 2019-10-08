@@ -5,9 +5,17 @@ DB_PATH = "data/database.db"
 
 
 class DataManager:
+    def __enter__(self, *args, **kwargs):
+        self.db.__enter__(*args, **kwargs)
+
+    def __exit__(self, *args, **kwargs):
+        self.db.__exit__(*args, **kwargs)
+
     def __init__(self):
-        create_new = not os.isfile(DB_PATH)
+        create_new = not os.path.isfile(DB_PATH)
         self.db = sqlite3.connect(DB_PATH)
+
+        print(f"Connection to database. Create new = {create_new}")
 
         if create_new:
             self.create_tables()
@@ -18,10 +26,9 @@ class DataManager:
                 """
                 CREATE TABLE players
                 (
-                    player_id int,
-                    discord_id int,
-                    display_name text,
-                    PRIMARY KEY (player_id)
+                    player_id INTEGER PRIMARY KEY,
+                    discord_id INTEGER UNIQUE,
+                    display_name TEXT
                 )
                 """)
 
@@ -29,8 +36,8 @@ class DataManager:
                 """
                 CREATE TABLE aliases
                 (
-                    alias text NOT NULL UNIQUE,
-                    player_id int,
+                    alias TEXT NOT NULL UNIQUE,
+                    player_id INTEGER,
                     FOREIGN KEY (player_id) REFERENCES players (player_id)
                 )
                 """)
@@ -39,12 +46,11 @@ class DataManager:
                 """
                 CREATE TABLE games
                 (
-                    game_id int,
-                    msg_id int UNIQUE,
-                    timestamp int NOT NULL,
-                    winner_id int NOT NULL,
-                    loser_id int NOT NULL,
-                    PRIMARY KEY (game_id),
+                    game_id INTEGER PRIMARY KEY,
+                    msg_id INTEGER UNIQUE,
+                    timestamp INTEGER NOT NULL,
+                    winner_id INTEGER NOT NULL,
+                    loser_id INTEGER NOT NULL,
                     FOREIGN KEY (winner_id) REFERENCES players (player_id),
                     FOREIGN KEY (loser_id) REFERENCES players (player_id)
                 )
@@ -77,8 +83,11 @@ class DataManager:
                         """,
                         [(alias.strip(), player_id) for alias in aliases])
 
-    def execute(self, cmd, arg):
-        return self.db.execute(cmd, arg)
+    def execute(self, cmd, *args):
+        return self.db.execute(cmd, *args)
+
+    def executemany(self, cmd, *args):
+        return self.db.executemany(cmd, *args)
 
     def id_from_alias(self, alias):
         req = self.db.execute(

@@ -1,6 +1,5 @@
 from bisect import bisect
 
-
 class AbstractRanking:
     def __init__(self, name, data_manager,
                  oldest_timestamp_to_consider=0,
@@ -70,34 +69,72 @@ class AbstractRanking:
 
         req = self.db.execute(
             f"""
-            SELECT score, player_id
-            FROM {self.ranking_table}
-            WHERE player_id != ? AND player_id != ? AND rank IS NOT NULL
-            ORDER BY score ASC
+            SELECT total_games
+            FROM players
+            WHERE player_id=?
             """,
-            (game["winner_id"], game["loser_id"])
-        )
-
-        scores = req.fetchall()
-
-        winner_rank = bisect(scores, winner_score)
-        scores.insert(winner_rank, winner_score)
-
-        loser_rank = bisect(scores, loser_score)
-
-        # If loser_rank get inserted before winner_rank it shifts it by one
-        if winner_rank > loser_rank:
-            winner_rank += 1
-
-        with self.db:
-            self.db.execute(
-                f"""
-                UPDATE {self.history_table}
-                SET winner_rank=?, loser_rank=?
-                WHERE timestamp=?
-                """,
-                (winner_rank + 1, loser_rank + 1, game["timestamp"])
+            ((game["winner_id"],), (game["loser_id"],))
             )
+
+        rank_winner, rank_loser = [row[0] + 1 >= self.mingames for row in req]
+
+        if rank_winner or rank_loser:
+            req = self.db.execute(
+                f"""
+                SELECT score, player_id
+                FROM {self.ranking_table}
+                WHERE player_id != ? AND player_id != ? AND rank IS NOT NULL
+                ORDER BY score ASC
+                """,
+                (game["winner_id"], game["loser_id"])
+                )
+
+            scores, player_ids = zip(*req.fetchall())
+            if rank_winner:
+                winner_rank, scores, player_ids = self.rerank_players(
+                                            scores, player_ids,
+                                            winner_score, game["winner_id"])
+
+            if rank_loser:
+                loser_rank, scores, player_ids = self.rerank_players(
+                                            scores, player_ids,
+                                            loser_score, game["loser_id"])
+
+            # If loser_rank get inserted before winner_rank it shifts it by one
+            try:
+                if winner_rank > loser_rank:
+                    winner_rank += 1
+            except TypeError:
+                pass
+
+            with self.db:
+                self.db.execute(
+                    f"""
+                    UPDATE {self.history_table}
+                    SET winner_rank=?, loser_rank=?
+                    WHERE timestamp=?
+                    """,
+                    (winner_rank, loser_rank, game["timestamp"])
+                )
+
+                self.db.executemany(
+                    f"""
+                    UPDATE {self.ranking_table}
+                    SET rank=?
+                    WHERE player_id=?
+                    """,
+                    [(k+1, player_id) for k, player_id in player_ids]
+                    )
+
+    def register_many(self, games):
+        raise NotImplementedError
+
+    def rerank_players(self, scores, player_ids, player_score, player_id):
+        rank = bisect(scores, player_score)
+        scores.insert(rank, player_score)
+        player_ids.insert(rank, player_id)
+
+        return rank + 1, scores, player_ids
 
     def get_kamlboard_stuff(self):
         # There are 3 potential scenarios:

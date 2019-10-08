@@ -2,7 +2,6 @@ import discord
 import git
 import io
 import os
-import progressbar
 import time
 import sys
 import asyncio
@@ -18,7 +17,6 @@ from discord.ext.commands import Bot
 from matplotlib import pyplot as plt
 
 from data_manager import DataManager
-from identity import IdentityNotFoundError
 from messages import msg_builder
 from ranking import ranking_types
 from save_and_load import (load_ranking_configs, load_tokens,
@@ -40,6 +38,7 @@ class Kamlbot(Bot):
 
         self.rankings = dict()
         self.is_ready = False
+        self.on_ready_ran = False
 
         super().__init__(*args, **kwargs)
 
@@ -215,14 +214,15 @@ class Kamlbot(Bot):
 
             self.rankings[name] = ranking_types[config["type"]](
                                     name,
-                                    self.identity_manager,
+                                    self.db,
                                     **config)
 
         req = self.db.execute(
             """
-            SELECT TOP 1 msg_id
+            SELECT msg_id
             FROM games
             ORDER BY timestamp DESC
+            LIMIT 1
             """
             )
 
@@ -236,8 +236,37 @@ class Kamlbot(Bot):
                                                  after=last_msg)
         logger.info(f"{len(fetched_games)} new results fetched from matchboard.")
 
-        for game in progressbar.progressbar(fetched_games):
-            await self.register_game(game, signal_update=False)
+        data = []
+        games = []
+        for game in fetched_games:
+            if game["winner"] == "" or game["loser"] == "":
+                continue
+
+            if game["winner"] is None or game["loser"] is None:
+                continue
+
+            winner_id = self.db.id_from_alias(game["winner"])
+            loser_id = self.db.id_from_alias(game["loser"])
+
+            data.append((game["msg_id"], game["timestamp"],
+                         winner_id, loser_id))
+
+            game["winner_id"] = winner_id
+            game["loser_id"] = loser_id
+
+            games.append(game)
+
+        with self.db:
+            self.db.executemany(
+                """
+                INSERT INTO games (msg_id, timestamp, winner_id, loser_id)
+                VALUES (:msg_id, :timestamp, :winner_id, :loser_id)
+                """,
+                games)
+
+        for name, ranking in self.rankings.items():
+            print(f"Registering game in ranking {name}")
+            ranking.register_many(games)
 
         await self.update_display_names()
         await self.edit_leaderboard()
@@ -262,10 +291,11 @@ class Kamlbot(Bot):
     # Called when the Bot has finished his initialization. May be called
     # multiple times (I have no idea why though)
     async def on_ready(self):
-        # If the manager is set, it means this has already run at least once.
-        if self.identity_manager is not None:
+        if self.on_ready_ran:
             print("Too much on_ready")
             return
+        else:
+            self.on_ready_ran = True
 
         self.kaml_server = self.get_guild(tokens["kaml_server_id"])
 
@@ -308,15 +338,15 @@ class Kamlbot(Bot):
             await chan.send(f"Initialization finished in {dt:0.2f} s.")
             self.is_ready = True
 
-    async def register_game(self, game, signal_update=True):
+    async def register_game(self, game):
         if game["winner"] == "" or game["loser"] == "":
             return None
 
         if game["winner"] is None or game["loser"] is None:
             return None
 
-        game["winner_id"] = self.id_from_alias(game["winner"])
-        game["loser_id"] = self.id_from_alias(game["loser"])
+        game["winner_id"] = self.db.id_from_alias(game["winner"])
+        game["loser_id"] = self.db.id_from_alias(game["loser"])
 
         with self.db:
             self.db.execute(
@@ -333,11 +363,8 @@ class Kamlbot(Bot):
         for name, ranking in self.rankings.items():
             ranking.register_game(game)
 
-        if signal_update:
-            await emit_signal("game_registered", game)
-
-        if signal_update:
-            await emit_signal("rankings_updated")
+        await emit_signal("game_registered", game)
+        await emit_signal("rankings_updated")
 
     async def send_game_result(self, change):
         """Create a new message in the KAML matchboard."""
