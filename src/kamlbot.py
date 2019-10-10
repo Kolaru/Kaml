@@ -458,7 +458,9 @@ async def allinfo(cmd, *nameparts):
     if not rivals_dict:
         rivals_msg = "None yet, play more!"
     elif rivals_dict:
-        sorted_rivals_list = sorted(rivals_dict.items(), key=lambda a: a[1][0], reverse=True)
+        # Sorts by games played, then by closest to 50% win rate
+        sorted_rivals_list = sorted(rivals_dict.items(), key=lambda a: (-a[1][0], abs(0.5-a[1][1])))
+
         sorted_rivals_list = sorted_rivals_list[:5]
         rivals_msg = ""
         for opponent in sorted_rivals_list:
