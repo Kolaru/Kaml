@@ -1,5 +1,8 @@
 from bisect import bisect
 
+from utils import logger
+
+
 class AbstractRanking:
     def __init__(self, name, data_manager,
                  oldest_timestamp_to_consider=0,
@@ -129,12 +132,27 @@ class AbstractRanking:
     def register_many(self, games):
         raise NotImplementedError
 
-    def rerank_players(self, scores, player_ids, player_score, player_id):
-        rank = bisect(scores, player_score)
-        scores.insert(rank, player_score)
-        player_ids.insert(rank, player_id)
+    def rerank_players(self, ranked_players, player):
+        try:
+            scores = [p["score"] for p in ranked_players]
+            rank = bisect(scores, player["score"]) + 1
+            ranked_players.insert(rank, player, player["player_id"])
 
-        return rank + 1, scores, player_ids
+            return ranked_players
+
+        except Exception:
+            logger.error(
+                f"""
+                An errored occured while reranking players.
+
+                Players
+                {ranked_players}
+
+                Player
+                {player}
+
+                """)
+            raise
 
     def get_kamlboard_stuff(self):
         # There are 3 potential scenarios:

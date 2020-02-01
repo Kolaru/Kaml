@@ -265,7 +265,7 @@ class Kamlbot(Bot):
                 games)
 
         for name, ranking in self.rankings.items():
-            print(f"Registering game in ranking {name}")
+            logger.info(f"Registering game in ranking {name}")
             ranking.register_many(games)
 
         await self.update_display_names()
@@ -292,7 +292,7 @@ class Kamlbot(Bot):
     # multiple times (I have no idea why though)
     async def on_ready(self):
         if self.on_ready_ran:
-            print("Too much on_ready")
+            logger.info("Too much on_ready")
             return
         else:
             self.on_ready_ran = True
@@ -307,14 +307,16 @@ class Kamlbot(Bot):
                                            name="kamlboard")
 
         for _ in range(100):
-            self.matchboard = self.get_guild(tokens["pw_server_id"]).get_channel(377280549192073216)
+            # TODO check that this works
+            self.matchboard = self.get_channel(tokens["matchboard_channel_id"])
             await asyncio.sleep(2)
             if self.matchboard is not None:
                 break
-            print("Retrying connection to PW matchboard")
+            logger.info("Retrying connection to PW matchboard")
 
         await self.change_presence(status=discord.Status.online)
 
+        # Whether the bot should consider itself to have been restarted
         if "-restart" in sys.argv:
             with open("config/restart_chan.txt", "r") as file:
                 chan_id = int(file.readline())
@@ -727,7 +729,7 @@ async def search(cmd, name, n=5):
 """)
 @commands.has_role(ROLENAME)
 async def stop(cmd):
-    print("Disconnecting Kamlbot")
+    logger.info("Disconnecting Kamlbot")
     await kamlbot.change_presence(activity=None, status=discord.Status.offline)
     await cmd.channel.send("The Kamlbot takes his leave.")
     logger.info("Disconnecting Kamlbot.")

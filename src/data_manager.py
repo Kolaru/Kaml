@@ -1,6 +1,8 @@
 import os
 import sqlite3
 
+from utils import logger
+
 DB_PATH = "data/database.db"
 
 
@@ -14,8 +16,9 @@ class DataManager:
     def __init__(self):
         create_new = not os.path.isfile(DB_PATH)
         self.db = sqlite3.connect(DB_PATH)
+        self.cached_alias_to_id = {}
 
-        print(f"Connection to database. Create new = {create_new}")
+        logger.info(f"Connection to database. Create new = {create_new}")
 
         if create_new:
             self.create_tables()
@@ -90,6 +93,9 @@ class DataManager:
         return self.db.executemany(cmd, *args)
 
     def id_from_alias(self, alias):
+        if alias in self.cached_alias_to_id:
+            return self.cached_alias_to_id[alias]
+
         req = self.db.execute(
             """
             SELECT player_id
@@ -118,10 +124,11 @@ class DataManager:
                     """,
                     (player_id, alias)
                     )
-
-            return player_id
         else:
-            return result[0]
+            player_id = result[0]
+
+        self.cached_alias_to_id[alias] = player_id
+        return player_id
 
     def id_from_discord_id(self, discord_id):
         req = self.db.execute(

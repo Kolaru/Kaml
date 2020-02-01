@@ -11,15 +11,21 @@ from logging.handlers import TimedRotatingFileHandler
 os.makedirs("log", exist_ok=True)
 
 LOGFORMAT = "%(asctime)s  %(levelname)-10s %(message)s"
-formatter = logging.Formatter(LOGFORMAT)
+formatter = logging.Formatter(LOGFORMAT, datefmt="%Y-%m-%d %H:%M:%S")
 
-handler = TimedRotatingFileHandler("log/log.log", when="midnight", encoding="utf-8")
+handler = TimedRotatingFileHandler("log/log.log", when="midnight",
+                                   encoding="utf-8")
 handler.setFormatter(formatter)
 handler.setLevel(logging.DEBUG)
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+console_handler.setLevel(logging.INFO)
 
 logger = logging.getLogger("Kamlbot")
 logger.setLevel(logging.INFO)
 logger.addHandler(handler)
+logger.addHandler(console_handler)
 
 
 ## asyncio locks
@@ -91,6 +97,138 @@ class ChainedDict:
 
     def __getitem__(self, key):
         return self.mid_to_value[self.key_to_mid[key]]
+
+
+class RankedObject:
+    next_object = None
+    previous_object = None
+    rank = 1
+
+    def __init__(self, item, key):
+        self.item = item
+        self.key = key
+
+    def __str__(self):
+        return f"[{self.rank}] {self.key} : {self.item}"
+
+
+class RankedDict:
+    first = None
+    last = None
+
+    def __init__(self, dictionary=None):
+        self.dict = {}
+        if dictionary is not None:
+            for key, item in dictionary.items():
+                self.append(item, key)
+                self.dict[key] = self.last
+
+    def __iter__(self):
+        obj = self.first
+        k = 1
+
+        while obj is not None and k <= len(self):
+            print(obj)
+            k += 1
+            yield obj.item
+            obj = obj.next_object
+
+        if k > len(self):
+            raise Exception("RankedDict iteration looping too much.")
+
+    def __getitem__(self, pos):
+        return self.get_obj(pos).item
+
+    def __len__(self):
+        if self.first is None:
+            return 0
+        return self.last.rank
+
+    def __str__(self):
+        s = ""
+
+        for r, item in enumerate(self):
+            s += f"{r+1} : {item}\n"
+
+        return s
+
+    def append(self, item, key=None):
+        obj = RankedObject(item, key)
+        self.dict[key] = obj
+
+        if len(self) == 0:
+            self.first = obj
+            self.last = obj
+
+        else:
+            obj.rank = len(self) + 1
+
+            obj.previous_object = self.last
+            self.last.next_object = obj
+
+            self.last = obj
+
+    def delete(self, key=None, pos=None):
+        if pos is not None:
+            obj = self.get_obj(pos)
+            key = obj.key
+
+        if key is not None:
+            if key not in self.dict:
+                return
+
+            obj = self.dict[key]
+
+            if obj.previous_object is not None:
+                obj.previous_object.next_object = obj.next_object
+
+            if obj.next_object is not None:
+                obj.next_object.previous_object = obj.previous_object
+
+        else:
+            raise Exception("Either key or pos should be set.")
+
+    def get(self, key, default=None):
+        if key not in self.dict:
+            return default
+
+        return self.dict[key].item
+
+    def get_obj(self, pos):
+        pos -= 1  # Use base 1 indexing
+        obj = self.first
+
+        for _ in range(pos):
+            obj = obj.next_object
+
+        return obj
+
+    def get_rank(self, key):
+        return self.dict[key].rank
+
+    def insert(self, pos, item, key=None):
+        after = self.get_obj(pos)
+
+        if after is None:
+            self.append(item, key)
+
+        else:
+            obj = RankedObject(item, key)
+            self.dict[key] = obj
+
+            before = after.previous_object
+            before.next_object = obj
+            obj.previous_object = before
+
+            after.previous_object = obj
+            obj.next_object = after
+
+            while after is not None:
+                after.rank += 1
+                after = after.next_object
+
+    def items(self):
+        return self.dict.items()
 
 
 def partition(N, parts=2):

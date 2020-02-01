@@ -121,7 +121,7 @@ async def fetch_game_results(matchboard, after=None):
     game_results = []
     history = matchboard.history(oldest_first=True,
                                  after=after,
-                                 limit=None)
+                                 limit=3000)  # TODO Put back None once testing is done
 
     async for msg in history:
         game = parse_matchboard_msg(msg)

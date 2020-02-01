@@ -5,6 +5,7 @@ from bisect import bisect
 from math import sqrt
 
 from .ranking import AbstractRanking
+from utils import logger, RankedDict
 
 
 class TrueSkillRanking(AbstractRanking):
@@ -12,7 +13,7 @@ class TrueSkillRanking(AbstractRanking):
                  mu=25, sigma=25/3, beta=25/6, tau=25/300,
                  **kwargs):
 
-        print(f"Init ranking {name}")
+        logger.info(f"Init ranking {name}")
 
         self.ts_env = trueskill.TrueSkill(
             draw_probability=0.0,
@@ -65,6 +66,11 @@ class TrueSkillRanking(AbstractRanking):
                     FOREIGN KEY (loser_id) REFERENCES players (player_id)
                 )
                 """)
+
+    def default_state_dict(self):
+        return {"rank": None,
+                "rating": self.ts_env.Rating(),
+                "total_games": 0}
 
     def fetch_player_data(self, player_id):
         req = self.db.execute(
@@ -165,7 +171,9 @@ class TrueSkillRanking(AbstractRanking):
     def register_many(self, games):
         thres = bisect([game["timestamp"] for game in games],
                        self.oldest_timestamp_to_consider)
-        games = games[thres:]
+        # games = games[thres:]  TODO uncomment when tests are done
+
+        logger.info(f"Registering a bundle of {len(games)} games.")
 
         req = self.db.execute(
             f"""
@@ -175,61 +183,58 @@ class TrueSkillRanking(AbstractRanking):
             )
 
         players = {row[0]: {
-                    "rank": row[1],
-                    "rating": self.ts_env.Rating(mu=row[2], sigma=row[3]),
-                    "total_games": row[4]} for row in req}
+            "player_id": row[0],
+            "rating": self.ts_env.Rating(mu=row[2], sigma=row[3]),
+            "total_games": row[4]
+        } for row in req}
+
+        for pid in players:
+            players[pid]["score"] = self.score(players[pid]["rating"])
+
+        logger.info(
+            f"""Known players before registration begins (len = {len(players)}):
+            {players}
+            """)
+
+        players = RankedDict(players)
+
+        logger.info(
+            f"""Known players before registration begins (len = {len(players)}):
+            {players}
+            """)
 
         history = []
 
-        default_state = {"rank": None,
-                         "rating": self.ts_env.Rating(),
-                         "total_games": 0}
-
         try:
             for game in progressbar.progressbar(games):
-                wstate = players.get(game["winner_id"], default_state)
-                lstate = players.get(game["loser_id"], default_state)
+                wstate = players.get(game["winner_id"],
+                                     self.default_state_dict())
+                lstate = players.get(game["loser_id"],
+                                     self.default_state_dict())
+
+                wstate["total_games"] += 1
+                lstate["total_games"] += 1
 
                 wstate["rating"], lstate["rating"] = self.ts_env.rate_1vs1(
                     wstate["rating"], lstate["rating"])
 
-                scores, player_ids = zip(*[
-                    (self.score(state["rating"]), pid)
-                    for pid, state in players.items()
-                    if pid != game["winner_id"] and
-                    pid != game["loser_id"]])
+                wstate["score"] = self.score(wstate["rating"])
+                lstate["score"] = self.score(lstate["rating"])
 
-                scores = list(scores)
-                player_ids = list(player_ids)
+                players.delete(key=game["winner_id"])
+                players.delete(key=game["loser_id"])
 
                 winner_rank, loser_rank = None, None
 
                 if wstate["total_games"] > self.mingames:
-                    winner_rank, scores, player_ids = self.rerank_players(
-                                                scores, player_ids,
-                                                self.score(wstate["rating"]),
-                                                game["winner_id"])
+                    self.rerank_players(players, wstate)
 
-                if wstate["total_games"] > self.mingames:
-                    loser_rank, scores, player_ids = self.rerank_players(
-                                                scores, player_ids,
-                                                self.score(lstate["rating"]),
-                                                game["loser_id"])
+                    winner_rank = players.get_rank(game["winner_id"])
 
-                wstate["rank"] = winner_rank
-                wstate["total_games"] += 1
-                players[game["winner_id"]] = wstate
+                if lstate["total_games"] > self.mingames:
+                    self.rerank_players(players, lstate)
 
-                lstate["rank"] = loser_rank
-                lstate["total_games"] += 1
-                players[game["loser_id"]] = lstate
-
-                # If loser_rank get inserted before winner_rank it shifts it by one
-                try:
-                    if winner_rank > loser_rank:
-                        winner_rank += 1
-                except TypeError:
-                    pass
+                    loser_rank = players.get_rank(game["loser_id"])
 
                 history.append(
                     (game["timestamp"],
@@ -244,9 +249,19 @@ class TrueSkillRanking(AbstractRanking):
                     )
 
         except Exception:
-            print(game)
-            print(wstate)
-            print(lstate)
+            logger.error(f"""
+                An error occurred while processing a game in register_many
+
+                Game
+                {game}
+
+                Winner state
+                {wstate}
+
+                Loser state
+                {lstate}
+
+                """)
             raise
 
         with self.db:
