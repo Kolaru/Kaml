@@ -172,6 +172,21 @@ class Kamlbot(Bot):
 
         return player_ids
 
+    def id_from_alias(self, alias):
+        if alias in self.aliases.index:
+            return self.aliases.loc[alias]["player_id"]
+
+        self.players = self.players.append(dict(discrod_id=None,
+                                                display_name=None),
+                                           ignore_index=True)
+
+        player_id = self.players.iloc[-1].name
+
+        alias_data = DataFrame(dict(player_id=player_id),
+                               index=[alias])
+        self.aliases = self.aliases.append(alias_data)
+        return player_id
+
     def id_from_discord_id(self, discord_id):
         indexes = self.players.index[self.players["discord_id"] == discord_id]
 
@@ -213,7 +228,7 @@ class Kamlbot(Bot):
             ]
         )
 
-        self.aliases.set_index("alias")
+        self.aliases.set_index("alias", inplace=True)
 
         self.games = DataFrame(
             columns=[
@@ -224,7 +239,7 @@ class Kamlbot(Bot):
             ]
         )
 
-        self.games.set_index("msg_id")
+        self.games.set_index("msg_id", inplace=True)
 
         for name, config in self.ranking_configs.items():
             chan = discord.utils.get(self.kaml_server.text_channels,
@@ -237,7 +252,7 @@ class Kamlbot(Bot):
 
             self.rankings[name] = ranking_types[config["type"]](
                                     name,
-                                    self.players,
+                                    players=self.players,
                                     **config)
 
         try:
@@ -266,13 +281,12 @@ class Kamlbot(Bot):
             game_data = DataFrame(
                 dict(
                     timestamp=game["timestamp"],
-                    msg_id=game["msg_id"],
                     winner_id=game["winner_id"],
                     loser_id=game["loser_id"]
-                )
+                ),
+                index=[game["msg_id"]]
             )
 
-            game_data.set_index("msg_id")
             self.games.append(game_data)
 
         for name, ranking in self.rankings.items():
@@ -372,7 +386,7 @@ class Kamlbot(Bot):
             )
         )
 
-        game_data.set_index("msg_id")
+        game_data.set_index("msg_id", inplace=True)
         self.games.append(game_data)
 
         for name, ranking in self.rankings.items():
@@ -423,7 +437,7 @@ class Kamlbot(Bot):
         Currently fetch the server nickname of every registered players.
         """
 
-        registered_players = self.players[self.players["discord_id"].notna]
+        registered_players = self.players[self.players["discord_id"].notna()]
 
         for player_id, discord_id in zip(registered_players.index,
                                          registered_players["discord_id"]):

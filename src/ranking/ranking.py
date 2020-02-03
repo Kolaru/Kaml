@@ -1,6 +1,6 @@
 from bisect import bisect
 
-from pandas import concat, DataFrame
+from pandas import concat, DataFrame, Series
 
 from utils import logger
 
@@ -57,23 +57,27 @@ class AbstractRanking:
         if game["timestamp"] <= self.oldest_timestamp_to_consider:
             return None
 
-        winner_score, loser_score = self.process_scores(game["winner_id"],
-                                                        game["loser_id"],
-                                                        game["timestamp"])
+        try:
+            winner_score, loser_score = self.process_scores(game["winner_id"],
+                                                            game["loser_id"],
+                                                            game["timestamp"])
 
-        winner_data = self.ranking.loc(game["winner_id"])
-        loser_data = self.ranking.loc(game["loser_id"])
+            self.ranking.loc[game["winner_id"], "n_games"] += 1
+            self.ranking.loc[game["loser_id"], "n_games"] += 1
 
-        winner_data["n_games"] += 1
-        loser_data["n_games"] += 1
+            self.ranking.loc[game["winner_id"], "score"] = winner_score
+            self.ranking.loc[game["loser_id"], "score"] = loser_score
 
-        if winner_data["n_games"] >= self.mingames:
-            winner_data["score"] = winner_score
-            self.rerank_players(winner_data)
+            if self.ranking.loc[game["winner_id"], "n_games"] >= self.mingames:
+                self.rerank_players(self.ranking.loc[game["winner_id"]])
 
-        if loser_data["n_games"] >= self.mingames:
-            loser_data["score"] = loser_score
-            self.rerank_players(loser_data)
+            if self.ranking.loc[game["loser_id"], "n_games"] >= self.mingames:
+                self.rerank_players(self.ranking.loc[game["loser_id"]])
+
+        except Exception:
+            print(self.ranking)
+            print(game)
+            raise
 
     def register_many(self, games):
         raise NotImplementedError

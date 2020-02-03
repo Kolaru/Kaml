@@ -33,7 +33,7 @@ class TrueSkillRanking(AbstractRanking):
             ]
         )
 
-        self.ranking.set_index("player_id")
+        self.ranking.set_index("player_id", inplace=True)
 
         self.history = DataFrame(
             columns=[
@@ -56,20 +56,19 @@ class TrueSkillRanking(AbstractRanking):
 
         player_data = DataFrame(
             dict(
-                player_id=player_id,
                 mu=rating.mu,
                 sigma=rating.sigma,
                 score=self.score(rating),
                 n_games=0,
                 rank=np.nan
-            )
+            ),
+            index=[player_id]
         )
-        player_data.set_index("player_id")
         self.ranking = concat([player_data, self.ranking])
 
     def leaderboard(self, start, stop):
         """Generate the string content of a leaderboard message."""
-        data = self.ranking[self.ranking["rank"].notna][start:stop]
+        data = self.ranking[self.ranking["rank"].notna()][start:stop]
         lines = []
 
         for row in data.iterrows():
