@@ -177,7 +177,7 @@ class Kamlbot(Bot):
             return self.aliases.loc[alias]["player_id"]
 
         self.players = self.players.append(dict(discrod_id=None,
-                                                display_name=None),
+                                                display_name=alias),
                                            ignore_index=True)
 
         player_id = self.players.iloc[-1].name
@@ -233,13 +233,10 @@ class Kamlbot(Bot):
         self.games = DataFrame(
             columns=[
                 "timestamp",
-                "msg_id",
                 "winner_id",
                 "loser_id"
             ]
         )
-
-        self.games.set_index("msg_id", inplace=True)
 
         for name, config in self.ranking_configs.items():
             chan = discord.utils.get(self.kaml_server.text_channels,
@@ -252,7 +249,7 @@ class Kamlbot(Bot):
 
             self.rankings[name] = ranking_types[config["type"]](
                                     name,
-                                    players=self.players,
+                                    bot=self,
                                     **config)
 
         try:

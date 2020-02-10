@@ -1,13 +1,15 @@
+import numpy as np
+
 from bisect import bisect
 
-from pandas import concat, DataFrame, Series
+from pandas import concat, DataFrame
 
 from utils import logger
 
 
 class AbstractRanking:
     def __init__(self, name,
-                 players=None,
+                 bot=None,
                  oldest_timestamp_to_consider=0,
                  mingames=0,
                  leaderboard_msgs=None,
@@ -21,8 +23,8 @@ class AbstractRanking:
         self.leaderboard_line = leaderboard_line
         self.description = description
 
-        self.players = players
-        for player_id in players.index:
+        self.bot = bot
+        for player_id in self.players.index:
             self.add_player(player_id)
 
     def add_player(self, player_id):
@@ -50,6 +52,10 @@ class AbstractRanking:
 
         return msgs
 
+    @property
+    def players(self):
+        return self.bot.players
+
     def process_scores(elf, winner_id, loser_id, timestamp):
         raise NotImplementedError()
 
@@ -68,11 +74,13 @@ class AbstractRanking:
             self.ranking.loc[game["winner_id"], "score"] = winner_score
             self.ranking.loc[game["loser_id"], "score"] = loser_score
 
-            if self.ranking.loc[game["winner_id"], "n_games"] >= self.mingames:
-                self.rerank_players(self.ranking.loc[game["winner_id"]])
+            set_rank = self.ranking.loc[game["winner_id"], "n_games"] >= self.mingames
+            self.rerank_players(self.ranking.loc[game["winner_id"]],
+                                set_rank=set_rank)
 
-            if self.ranking.loc[game["loser_id"], "n_games"] >= self.mingames:
-                self.rerank_players(self.ranking.loc[game["loser_id"]])
+            set_rank = self.ranking.loc[game["loser_id"], "n_games"] >= self.mingames
+            self.rerank_players(self.ranking.loc[game["loser_id"]],
+                                set_rank=set_rank)
 
         except Exception:
             print(self.ranking)
@@ -82,15 +90,24 @@ class AbstractRanking:
     def register_many(self, games):
         raise NotImplementedError
 
-    def rerank_players(self, player_data):
+    def rerank_players(self, player_data, set_rank=True):
+        player_data = player_data.copy()
         try:
             self.ranking.drop(player_data.name, inplace=True)
+            score = player_data["score"] if set_rank else np.nan
             scores = self.ranking["score"].values
-            rank = bisect(scores, player_data["score"])
+            rank = bisect(scores, score)
+
+            if set_rank:
+                player_data["rank"] = rank
+
             self.ranking = concat([
                 self.ranking[:rank],
                 DataFrame(player_data).T,
-                self.ranking[rank+1:]])
+                self.ranking[rank:]])
+
+            if set_rank:
+                print(self.ranking)
 
         except Exception:
             logger.error(

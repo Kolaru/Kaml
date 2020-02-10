@@ -24,7 +24,6 @@ class TrueSkillRanking(AbstractRanking):
 
         self.ranking = DataFrame(
             columns=[
-                "player_id",
                 "rank",
                 "score",
                 "n_games",
@@ -32,8 +31,6 @@ class TrueSkillRanking(AbstractRanking):
                 "sigma"
             ]
         )
-
-        self.ranking.set_index("player_id", inplace=True)
 
         self.history = DataFrame(
             columns=[
@@ -68,13 +65,12 @@ class TrueSkillRanking(AbstractRanking):
 
     def leaderboard(self, start, stop):
         """Generate the string content of a leaderboard message."""
-        data = self.ranking[self.ranking["rank"].notna()][start:stop]
+        data = self.ranking[self.ranking["rank"].notna()].iloc[start:stop]
         lines = []
 
-        for row in data.iterrows():
-            player_id = row.name
-            wins = self.history[self.history["winner_id"] == player_id].sum()
-            losses = self.history[self.history["loser_id"] == player_id].sum()
+        for player_id, row in data.iterrows():
+            wins = len(self.history[self.history["winner_id"] == player_id])
+            losses = len(self.history[self.history["loser_id"] == player_id])
             lines.append(self.leaderboard_line.format(
                 rank=row["rank"],
                 score=row["score"],
