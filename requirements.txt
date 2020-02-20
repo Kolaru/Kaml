@@ -1,7 +1,7 @@
 certifi==2019.6.16
-discord==1.0.1
-gitpython==3.0.1
-matplotlib==3.1.1
+discord.py # Was named discord before, retrieves latest version as discord might update its API
+gitpython==3.0.8
+matplotlib==3.1.3
 pathos==0.2.4
 #pip-chill==0.1.8 # Used to generate this file
 #profilehooks==1.11.0 # Used to profile functions
