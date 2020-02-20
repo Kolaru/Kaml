@@ -2,7 +2,7 @@ import discord
 import git
 import io
 import os
-import progressbar
+from tqdm import tqdm
 import time
 import sys
 import asyncio
@@ -207,7 +207,7 @@ class Kamlbot(Bot):
                                     **config)
 
         game_results = await get_game_results(self.matchboard)
-        for game in progressbar.progressbar(game_results):
+        for game in tqdm(game_results):
             await self.register_game(game, save=False, signal_update=False)
 
         await self.update_display_names()
