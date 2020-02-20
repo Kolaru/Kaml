@@ -1,6 +1,7 @@
 {
     "alias_added_to_profile": "In game name `{alias}` has be added to your profile. Since it's not the first one, the bot needs to be reloaded for the change to be effective. <@&573205104832806912>",
     "alias_not_found": ":negative_squared_cross_mark: The name `{alias}` was not found.",
+    "allinfo_statistics": ":military_medal: **{player.display_rank}**\n:camel: **{player.score:.2f} (±{player.sigma:.2f})**\n:ledger: **{player.wins} – {player.losses}**",
     "associated_aliases": "{identity.display_name} profile is associated to the following in game name(s):\n```\n{identity.display_aliases}\n```",
     "association_done": "Your discord profile has been associated to the in game name `{new_alias}`. You can now use the `!rank` command (and similar) without parameters.",
     "game_result_title": "Ranked battle has ended",

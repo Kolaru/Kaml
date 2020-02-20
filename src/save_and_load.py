@@ -8,10 +8,10 @@ from utils import locking, logger
 
 ## Parsing
 
-WIN_PATTERN = re.compile(r":crown: \*\*(.+)\*\* \(.+\) vs \*\*(.+)\*\* \(.+\)")
-LOSS_PATTERN = re.compile(r"\*\*(.+)\*\* \(.+\) vs :crown: \*\*(.+)\*\* \(.+\)")
-HALF_WIN_PATTERN = re.compile(r":crown: \*\*(.+)\*\* \(.+\) has won a match!")
-HALF_LOSS_PATTERN = re.compile(r"\*\*(.+)\*\* \(.+\) has lost a match.")
+WIN_PATTERN = re.compile(r":crown: \*\*(.+)\*\* \(\d+\) vs \*\*(.+)\*\* \(\d+\)")
+LOSS_PATTERN = re.compile(r"\*\*(.+)\*\* \(\d+\) vs :crown: \*\*(.+)\*\* \(\d+\)")
+HALF_WIN_PATTERN = re.compile(r":crown: \*\*(.+)\*\* \(\d+\) has won a match!")
+HALF_LOSS_PATTERN = re.compile(r"\*\*(.+)\*\* \(\d+\) has lost a match\.")
 MENTION_PATTERN = re.compile(r"<@(.+)>")
 
 
@@ -110,6 +110,37 @@ async def get_game_results(matchboard):
 
     return loaded_results + fetched_game_results
 
+
+def get_current_form(player, lookback_depth=10, multiline=False):
+    # get current record of the player
+    no_of_games = min(player.total_games, lookback_depth)
+    wins = player.wins
+    losses = player.losses
+
+    current_form_list = []
+    for t in reversed(player.times[-no_of_games:]):  # get the times of the last games played
+        # get record of the current time state
+        tstate_wins = player.saved_states[t].wins
+        tstate_losses = player.saved_states[t].losses
+        if tstate_wins < wins:  # player has won the previous game
+            current_form_list.append(":crown:")
+        elif tstate_losses < losses:  # player has lost the previous game
+            current_form_list.append(":meat_on_bone:")
+        # update record for the next iteration
+        wins = tstate_wins
+        losses = tstate_losses
+
+    if (no_of_games > 10 and multiline):
+        last_row = no_of_games // 10
+        last_row_len = no_of_games % 10
+        current_form = ""
+        for row in range(last_row):
+            current_form += "".join(current_form_list[row*10:(row+1)*10]) + "\n"
+        if last_row_len != 0: current_form += "".join(current_form_list[-last_row_len])
+    else:
+        current_form = "".join(current_form_list)
+
+    return current_form, no_of_games
 
 def game_results_writer(file):
     """Return a `Writer` for game results for a given file.

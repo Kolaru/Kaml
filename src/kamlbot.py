@@ -22,7 +22,7 @@ from messages import msg_builder
 from ranking import ranking_types
 from save_and_load import (load_ranking_configs, load_tokens,
                            parse_matchboard_msg, get_game_results,
-                           save_single_game)
+                           save_single_game, get_current_form)
 from utils import connect, emit_signal, logger, partition
 
 
@@ -449,6 +449,76 @@ async def allinfo(cmd, *nameparts):
 
     await cmd.channel.send(msg)
 
+    # Obtaining Rivals info
+    rivals_dict = {key: (player.games_against[key], player.win_percents[key]) for key in player.win_percents}
+    rivals_dict = {k: (v[0], v[1]) for k, v in rivals_dict.items() if v[0] > 8}  # only include 9 or more games played against
+    rivals_dict = {k: (v[0], v[1]) for k, v in rivals_dict.items() if 0.4 < v[1] < 0.6}  # only include within 40-60% win rate
+
+    # Building Rivals message
+    if not rivals_dict:
+        rivals_msg = "None yet, play more!"
+    elif rivals_dict:
+        # Sorts by games played, then by closest to 50% win rate
+        sorted_rivals_list = sorted(rivals_dict.items(), key=lambda a: (-a[1][0], abs(0.5-a[1][1])))
+
+        sorted_rivals_list = sorted_rivals_list[:5]
+        rivals_msg = ""
+        for opponent in sorted_rivals_list:
+            opponent = opponent[0]
+            opp_name = opponent.display_name
+            h2h_record = str(ranking.wins[(player, opponent)]) + " – " + str(ranking.wins[(opponent, player)])
+            rivals_msg += "**" + opp_name + "**\t" + h2h_record + " (" + '{:.2f}'.format(rivals_dict[opponent][1]*100) + "%)\n"
+
+    # Obtain and Build Peak message
+    compare_rank = 0
+    peak_rank = len(ranking.rank_to_player)
+    for timestamp, drank in list(player.delta_ranks.items()):
+        compare_rank += drank
+        if compare_rank < peak_rank:
+            peak_rank = compare_rank
+            peak_rank_time = time.strftime("%d %b %Y", time.gmtime(timestamp))
+    peak_rank = str(peak_rank)
+
+    peak_score = max(player.scores)
+    for timestamp, tsstate in list(player.states.items()):
+        if tsstate.score == peak_score:
+            peak_score_timestamp = timestamp
+            peak_score_sigma = tsstate.sigma
+            break
+    peak_score_time = time.strftime("%d %b %Y", time.gmtime(peak_score_timestamp))
+    
+    peak_msg = ":military_medal: **{}** (on {})\n:camel: **{:.2f} (±{:.2f})** (on {})".format(peak_rank,
+                                                                                         peak_rank_time,
+                                                                                         peak_score,
+                                                                                         peak_score_sigma,
+                                                                                         peak_score_time)
+
+    # Obtain and Build Cool Stats message
+    first_game_date = time.strftime("%d %b %Y", time.gmtime(list(player.saved_states.items())[0][0]))
+    last_game_date = time.strftime("%d %b %Y", time.gmtime(list(player.saved_states.items())[-1][0]))
+    coolstats_msg = "First Game: **" + first_game_date + "**\n"
+    coolstats_msg += "Last Game: **" + last_game_date + "**\n"
+    coolstats_msg += "Longest Win Streak: **" + str(player.longest_win_streak) + "**\n"
+    coolstats_msg += "Longest Lose Streak: **" + str(player.longest_lose_streak) + "**"
+
+    embed = Embed(title=player.display_name, color=0xf36541)
+    embed.add_field(name="Statistics",
+                    value=msg_builder.build(
+                          "allinfo_statistics",
+                          player=player),
+                    inline=True)
+    embed.add_field(name="Peak",
+                    value=peak_msg,
+                    inline=True)
+    embed.add_field(name="Rivals",
+                    value=rivals_msg,
+                    inline=True)
+    embed.add_field(name="Cool Stats",
+                    value=coolstats_msg,
+                    inline=True)
+    
+    await cmd.channel.send(embed=embed)
+
     if player.rank is not None:
         fig, axes = plt.subplots(2, 2, sharex="col", sharey="row")
         skip = ranking.mingames
@@ -563,23 +633,7 @@ async def rank(cmd, *nameparts):
 
     player = kamlbot.rankings["main"][identity]
 
-    # get current record of the player
-    no_of_games = min(player.total_games, 10)
-    wins = player.wins
-    losses = player.losses
-
-    current_form = ""
-    for t in reversed(player.times[-no_of_games:]):  # get the times of the last games played
-        # get record of the current time state
-        tstate_wins = player.saved_states[t].wins
-        tstate_losses = player.saved_states[t].losses
-        if tstate_wins < wins:  # player has won the previous game
-            current_form += ":crown:"
-        elif tstate_losses < losses:  # player has lost the previous game
-            current_form += ":meat_on_bone:"
-        # update record for the next iteration
-        wins = tstate_wins
-        losses = tstate_losses
+    current_form, no_of_games = get_current_form(player, 15)
 
     msg = msg_builder.build("player_rank",
                             player=player)
