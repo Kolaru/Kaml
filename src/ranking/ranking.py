@@ -1,127 +1,193 @@
 import numpy as np
+import pandas as pd
 
-from bisect import bisect
-
-from pandas import concat, DataFrame
+from sortedcontainers import SortedList
 
 from utils import logger
 
 
 class AbstractRanking:
+    """
+    Super class of all ranking.
+
+    Additional keyword parameters are ignored.
+
+    Parameters
+    ==========
+    name: str
+        The unique name of the ranking.
+
+    Keyword parameters
+    ==========
+    bot: Kamlbot
+        The discord Kamlbot using the ranking. Used to access discord related
+        information about the players.
+    description: str
+        The description of the ranking.
+    earliest_timestamp: Unix timestamp
+        The timestamp before which games are registered in the ranking.
+        TODO Implement this.
+    leaderboard_line: template string
+        The template used to display player informations in the leaderboard.
+    leaderboard_msgs: list of dict
+        A list of dict, each representing on of the discord messages used to
+        display this ranking leaderboard.
+    mingames: int
+        The minimum number of games players must play berfore they rank start
+        being computed.
+    oldest_timestamp: Unix timestamp
+        The timestamp after which games are registered in the ranking.
+    ranking_dataframe: pandas.Dataframe
+        The dataframe used to represent the ranking internally. The following
+        columns are required:
+            - rank
+            - score
+            - n_games
+    """
     def __init__(self, name,
                  bot=None,
-                 oldest_timestamp_to_consider=0,
-                 mingames=0,
-                 leaderboard_msgs=None,
-                 leaderboard_line=None,
                  description="A ranking",
+                 leaderboard_line=None,
+                 leaderboard_msgs=None,
+                 mingames=0,
+                 oldest_timestamp=0,
+                 ranking_dataframe=None,
                  **kwargs):
-        self.name = name
-        self.oldest_timestamp_to_consider = oldest_timestamp_to_consider
-        self.mingames = mingames
-        self.leaderboard_msgs = leaderboard_msgs
-        self.leaderboard_line = leaderboard_line
-        self.description = description
-
         self.bot = bot
-        for player_id in self.players.index:
-            self.add_player(player_id)
+        self.description = description
+        self.leaderboard_line = leaderboard_line
+        self.leaderboard_msgs = leaderboard_msgs
+        self.mingames = mingames
+        self.name = name
+        self.oldest_timestamp = oldest_timestamp
+        self.ranking = ranking_dataframe
 
-    def add_player(self, player_id):
+        # Fetch all players already known to the bot and add them
+        for player_id in bot.players.index:
+            self.add_new_player(player_id)
+
+        # Sorted list of scores sorted from highest to lowest
+        self.sorted_scores = SortedList([], key=lambda s: -s)
+
+        # Add the scores of all ranked players with enough games
+        for player_id, player_data in self.ranking.iterrows():
+            if player_data["n_games"] >= self.mingames:
+                self.sorted_scores.add(player_data["score"])
+
+    def add_new_player(self, player_id):
+        """
+        Add a new player to the ranking with the given player ID.
+
+        Must be implemented by subclasses.
+        """
         raise NotImplementedError()
 
     def leaderboard(self, start, stop):
-        """Generate the string content of a leaderboard message."""
+        """
+        Generate a string containing the leaderboard between rank `start` and
+        `stop`.
+
+        Must be implemented by subclasses.
+        """
         raise NotImplementedError()
 
-    def leaderboard_messages(self):
-        msgs = []
-
-        for m in self.leaderboard_msgs:
-            T = m["type"]
+    async def update_leaderboard(self):
+        """
+        Update the leaderboard messages of the ranking with up to date
+        information.
+        """
+        for msg in self.leaderboard_msgs:
+            T = msg["type"]
 
             if T == "header":
                 pass
             elif T == "content":
-                m["content"] = self.leaderboard(m["min"], m["max"])
+                msg["content"] = self.leaderboard(msg["min"], msg["max"])
+                await msg["msg"].edit(content=msg["content"])
             else:
                 raise KeyError(f"Leaderboard message of unkown type {T} "
                                f"in Ranking {self.name}.")
 
-            msgs.append(m)
+    def compute_player_states(self, winner_id, loser_id, timestamp):
+        """
+        Compute the new states of the players involved in a game during which
+        the player with ID `winner_id` won against the player with ID
+        `loser_id`.
 
-        return msgs
+        This function must not have any side effect, to make sure that
+        the generic `AbstractRanking.register_game` method works as expected.
 
-    @property
-    def players(self):
-        return self.bot.players
+        Must return a dict with a field "score". This dict will later be passed
+        to the `AbstractRanking.apply_new_states` method in which additional
+        updates can be performed with side effects.
 
-    def process_scores(elf, winner_id, loser_id, timestamp):
+        Must be implemented by subclasses.
+        """
         raise NotImplementedError()
 
-    def register_game(self, game):
-        if game["timestamp"] <= self.oldest_timestamp_to_consider:
+    def register_game(self, winner_id=0, loser_id=0, timestamp=0, **kwargs):
+        # Ignore games that are outside considered period
+        if timestamp <= self.oldest_timestamp:
             return None
 
-        try:
-            winner_score, loser_score = self.process_scores(game["winner_id"],
-                                                            game["loser_id"],
-                                                            game["timestamp"])
+        if winner_id not in self.ranking.index:
+            self.add_new_player(winner_id)
 
-            self.ranking.loc[game["winner_id"], "n_games"] += 1
-            self.ranking.loc[game["loser_id"], "n_games"] += 1
+        if loser_id not in self.ranking.index:
+            self.add_new_player(loser_id)
 
-            self.ranking.loc[game["winner_id"], "score"] = winner_score
-            self.ranking.loc[game["loser_id"], "score"] = loser_score
+        winner_state, loser_state = self.compute_player_states(
+            winner_id,
+            loser_id)
 
-            set_rank = self.ranking.loc[game["winner_id"], "n_games"] >= self.mingames
-            self.rerank_players(self.ranking.loc[game["winner_id"]],
-                                set_rank=set_rank)
+        winner_score = winner_state["score"]
+        loser_score = loser_state["score"]
 
-            set_rank = self.ranking.loc[game["loser_id"], "n_games"] >= self.mingames
-            self.rerank_players(self.ranking.loc[game["loser_id"]],
-                                set_rank=set_rank)
+        self.ranking.loc[winner_id, "n_games"] += 1
+        self.ranking.loc[loser_id, "n_games"] += 1
 
-        except Exception:
-            print(self.ranking)
-            print(game)
-            raise
+        winner_old_rank = self.ranking.loc[winner_id, "rank"]
+
+        if winner_old_rank is not None:
+            winner_old_score = self.ranking.loc[winner_id, "score"]
+            self.sorted_scores.remove(winner_old_score)
+
+        loser_old_rank = self.ranking.loc[loser_id, "rank"]
+
+        if loser_old_rank is not None:
+            loser_old_score = self.ranking.loc[loser_id, "score"]
+            self.sorted_scores.remove(loser_old_score)
+
+        self.ranking.loc[winner_id, "score"] = winner_score
+        self.ranking.loc[loser_id, "score"] = loser_score
+
+        winner_is_ranked = self.ranking.loc[winner_id, "n_games"] >= self.mingames
+        loser_is_ranked = self.ranking.loc[loser_id, "n_games"] >= self.mingames
+
+        winner_state["rank"] = None
+        loser_state["rank"] = None
+
+        # Both scores must be added first to ensure the ranks are correct
+        if winner_is_ranked:
+            self.sorted_scores.add(winner_score)
+
+        if loser_is_ranked:
+            self.sorted_scores.add(loser_score)
+
+        if winner_is_ranked:
+            winner_rank = self.sorted_scores.index(winner_score)
+            self.ranking.loc[winner_id, "rank"] = winner_rank
+            winner_state["rank"] = winner_rank
+
+        if loser_is_ranked:
+            loser_rank = self.sorted_scores.index(loser_score)
+            self.ranking.loc[loser_id, "rank"] = loser_rank
+            loser_state["rank"] = loser_rank
+
+        self.apply_new_states(timestamp, winner_state, loser_state)
 
     def register_many(self, games):
         raise NotImplementedError
-
-    def rerank_players(self, player_data, set_rank=True):
-        player_data = player_data.copy()
-        try:
-            self.ranking.drop(player_data.name, inplace=True)
-            score = player_data["score"] if set_rank else np.nan
-            scores = self.ranking["score"].values
-            rank = bisect(scores, score)
-
-            if set_rank:
-                player_data["rank"] = rank
-
-            self.ranking = concat([
-                self.ranking[:rank],
-                DataFrame(player_data).T,
-                self.ranking[rank:]])
-
-            if set_rank:
-                print(self.ranking)
-
-        except Exception:
-            logger.error(
-                f"""
-                An errored occured while reranking players.
-
-                Players
-                {self.ranking}
-
-                Player
-                {player_data}
-
-                """)
-            raise
 
     # def get_kamlboard_stuff(self):
     #     # There are 3 potential scenarios:

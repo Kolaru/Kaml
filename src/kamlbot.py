@@ -37,7 +37,7 @@ class PlayerNotFound(Exception):
 class Kamlbot(Bot):
     """Main bot class."""
     def __init__(self, *args, **kwargs):
-        connect("rankings_updated", self.edit_leaderboard)
+        connect("rankings_updated", self.update_leaderboard)
         connect("game_registered", self.send_game_result)
 
         self.rankings = dict()
@@ -91,11 +91,10 @@ class Kamlbot(Bot):
             async for msg in chan.history():
                 await msg.delete()
 
-    async def edit_leaderboard(self):
-        """Edit the leaderboard messages with the current content."""
+    async def update_leaderboard(self):
+        """Update all leaderboard messages with up to date information."""
         for ranking in self.rankings.values():
-            for msg in ranking.leaderboard_messages():
-                await msg["msg"].edit(content=msg["content"])
+            await ranking.update_leaderboard()
 
     def find_names(self, nameparts, n=1):
         aliases = self.aliases.index
@@ -290,10 +289,10 @@ class Kamlbot(Bot):
             logger.info(f"Registering game in ranking {name}")
             # ranking.register_many(new_games) TODO redo that for efficiency ?
             for game in new_games:
-                ranking.register_game(game)
+                ranking.register_game(**game)
 
         await self.update_display_names()
-        await self.edit_leaderboard()
+        await self.update_leaderboard()
 
     # Called for every messages sent in any of the server to which the bot
     # has access.
@@ -365,6 +364,7 @@ class Kamlbot(Bot):
             self.is_ready = True
 
     async def register_game(self, game):
+        # TODO unpack game dict directly
         if game["winner"] == "" or game["loser"] == "":
             return None
 
@@ -387,7 +387,7 @@ class Kamlbot(Bot):
         self.games.append(game_data)
 
         for name, ranking in self.rankings.items():
-            ranking.register_game(game)
+            ranking.register_game(**game)
 
         await emit_signal("game_registered", game)
         await emit_signal("rankings_updated")

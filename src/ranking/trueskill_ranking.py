@@ -1,8 +1,8 @@
 import numpy as np
+import pandas as pd
 import trueskill
 
 from math import sqrt
-from pandas import concat, DataFrame
 
 from .ranking import AbstractRanking
 from utils import logger
@@ -22,7 +22,23 @@ class TrueSkillRanking(AbstractRanking):
             beta=beta,
             tau=tau)
 
-        self.ranking = DataFrame(
+        self.history = pd.DataFrame(
+            columns=[
+                "timestamp",
+                "winner_id",
+                "winner_rank",
+                "winner_score",
+                "winner_mu",
+                "winner_sigma",
+                "loser_id",
+                "loser_rank",
+                "loser_score",
+                "loser_mu",
+                "loser_sigma"
+            ]
+        )
+
+        ranking_dataframe = pd.DataFrame(
             columns=[
                 "rank",
                 "score",
@@ -32,26 +48,12 @@ class TrueSkillRanking(AbstractRanking):
             ]
         )
 
-        self.history = DataFrame(
-            columns=[
-                "timestamp",
-                "winner_id",
-                "winner_rank",
-                "winner_mu",
-                "winner_sigma",
-                "loser_id",
-                "loser_rank",
-                "loser_mu",
-                "loser_sigma"
-            ]
-        )
+        super().__init__(name, ranking_dataframe=ranking_dataframe, **kwargs)
 
-        super().__init__(name, **kwargs)
-
-    def add_player(self, player_id):
+    def add_new_player(self, player_id):
         rating = self.ts_env.Rating()  # Rating with default values
 
-        player_data = DataFrame(
+        player_data = pd.DataFrame(
             dict(
                 mu=rating.mu,
                 sigma=rating.sigma,
@@ -61,7 +63,7 @@ class TrueSkillRanking(AbstractRanking):
             ),
             index=[player_id]
         )
-        self.ranking = concat([player_data, self.ranking])
+        self.ranking = pd.concat([player_data, self.ranking])
 
     def leaderboard(self, start, stop):
         """Generate the string content of a leaderboard message."""
@@ -92,40 +94,53 @@ class TrueSkillRanking(AbstractRanking):
 
         return self.ts_env.Rating()
 
-    def process_scores(self, winner_id, loser_id, timestamp):
-        wrating = self.load_rating(winner_id)
-        lrating = self.load_rating(loser_id)
+    def compute_player_states(self, winner_id, loser_id):
+        winner_rating = self.load_rating(winner_id)
+        loser_rating = self.load_rating(loser_id)
 
-        wrating, lrating = self.ts_env.rate_1vs1(wrating, lrating)
+        wrating, lrating = self.ts_env.rate_1vs1(winner_rating, loser_rating)
 
-        self.update_rating(winner_id, wrating)
-        self.update_rating(loser_id, lrating)
+        winner_state = dict(
+            id=winner_id,
+            score=self.score(winner_rating),
+            rating=winner_rating
+        )
+
+        loser_state = dict(
+            id=loser_id,
+            score=self.score(loser_rating),
+            rating=loser_rating
+        )
+
+        return winner_state, loser_state
+
+    def apply_new_states(self, timestamp, winner_state, loser_state):
+        self.update_rating(winner_state["id"], winner_state["rating"])
+        self.update_rating(loser_state["id"], loser_state["rating"])
 
         self.history = self.history.append(
             dict(
                 timestamp=timestamp,
-                winner_id=winner_id,
-                winner_mu=wrating.mu,
-                winner_sigma=wrating.sigma,
-                loser_id=loser_id,
-                loser_mu=lrating.mu,
-                loser_sigma=lrating.sigma
+                winner_id=winner_state["id"],
+                winner_rank=winner_state["rank"],
+                winner_score=winner_state["score"],
+                winner_mu=winner_state["rating"].mu,
+                winner_sigma=winner_state["rating"].sigma,
+                loser_id=loser_state["id"],
+                loser_rank=loser_state["rank"],
+                loser_score=loser_state["score"],
+                loser_mu=loser_state["rating"].mu,
+                loser_sigma=loser_state["rating"].sigma
             ),
             ignore_index=True
         )
 
-        return self.score(wrating), self.score(lrating)
-
     def score(self, rating):
         return rating.mu - 3*rating.sigma
 
-    def update_rating(self, player_id, rating):
-        if player_id not in self.ranking.index:
-            self.add_player(player_id)
-        else:
-            self.ranking.loc[player_id, "mu"] = rating.mu
-            self.ranking.loc[player_id, "sigma"] = rating.sigma
-            self.ranking.loc[player_id, "score"] = self.score(rating)
+    def update_rating(self, player_id, new_rating):
+        self.ranking.loc[player_id, "mu"] = new_rating.mu
+        self.ranking.loc[player_id, "sigma"] = new_rating.sigma
 
     def win_estimate(self, p1, p2):
         delta_mu = p1.mu - p2.mu
