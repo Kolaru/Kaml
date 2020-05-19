@@ -3,6 +3,7 @@ import discord
 import git
 import io
 import numpy as np
+import pandas as pd
 import os
 import sys
 import time
@@ -17,13 +18,11 @@ from discord.ext.commands import Bot
 
 from matplotlib import pyplot as plt
 
-from pandas import DataFrame
-
 from messages import msg_builder
 from ranking import ranking_types
 from save_and_load import (load_ranking_configs, load_tokens,
                            parse_matchboard_msg, fetch_game_results)
-from utils import connect, emit_signal, logger, partition
+from utils import logger, partition
 
 
 tokens = load_tokens()
@@ -35,17 +34,38 @@ class PlayerNotFound(Exception):
 
 
 class Kamlbot(Bot):
-    """Main bot class."""
-    def __init__(self, *args, **kwargs):
-        connect("rankings_updated", self.update_leaderboard)
-        connect("game_registered", self.send_game_result)
+    """
+    Main bot class.
 
+    Attributes
+    ==========
+    aliases: pandas.DataFrame, columns=(player_id,), indexed by alias
+        Dataframe associating aliases to players.
+    games: pandas.DataFrame, columns=(timestamp, winner_id, loser_id), indexed
+           by game_id.
+        Dataframe of all the games.
+    is_ready: bool
+        Flag storing whether the bot is ready to process commands.
+    on_ready_ran: bool
+        Flag storing wether the `on_ready` function has already been called.
+        Somehow discord.py API sometimes calls it multiple time, so we use this
+        flag to avoid running it multiple times.
+    players: pandas.DataFrame, columns=(discord_id, display_name), indexed by
+             player_id
+        Dataframe of all none players.
+    rankings: dict of AbstractRanking
+        Dict of all rankings, indexed by their name.
+    ranking_configs: dict of dict
+        Dict of configuration for the rankings.
+    """
+    def __init__(self, *args, **kwargs):
         self.rankings = dict()
         self.is_ready = False
         self.on_ready_ran = False
 
         super().__init__(*args, **kwargs)
 
+        # Set up the daily check by starting the loop at the next noon
         now = datetime.now()
         nextnoon_date = now + timedelta(days=1)
         nextnoon = nextnoon_date.replace(hour=12, minute=0, second=0,
@@ -54,6 +74,11 @@ class Kamlbot(Bot):
 
     @tasks.loop(hours=24)
     async def at_noon(self):
+        """
+        Task running every 24 hours.
+
+        Currently only responsible for restarting the weekly ranking.
+        """
         today = datetime.today()
 
         if today.weekday() == 0:  # 0 is for monday
@@ -76,10 +101,17 @@ class Kamlbot(Bot):
                                         self.identity_manager,
                                         **config)
 
+            # TODO check the following:
+            #   - timestamp of last monday doesn-t seem to be set
+            #   - leaderboard messages are not updated
+
         if today.day == 1:
             pass  # TODO restart monthly ranking
 
     async def clean_leaderboards(self):
+        """
+        Remove all learderboard messages for all rankings.
+        """
         channels = set()
         for name, config in self.ranking_configs.items():
             chan = discord.utils.get(self.kaml_server.text_channels,
@@ -91,24 +123,42 @@ class Kamlbot(Bot):
             async for msg in chan.history():
                 await msg.delete()
 
-    async def update_leaderboard(self):
-        """Update all leaderboard messages with up to date information."""
+    async def update_leaderboards(self):
+        """
+        Update all leaderboard messages with up to date information.
+        """
         for ranking in self.rankings.values():
             await ranking.update_leaderboard()
 
     def find_names(self, nameparts, n=1):
-        aliases = self.aliases.index
+        """
+        Given a list of parts `nameparts` try to construct `n` valid player
+        names by combining them with spaces. Return `None` if valid names can
+        not be constructed.
+
+        For example for `n = 2` and `nameparts = ["A", "B", "C"]` this function
+        checks the database for either players "A B" and "C" or players
+        "A" and "B C".
+        """
         k = len(nameparts)
 
+        # If there are as much parts as requested aliases, each part must
+        # correspond to a single alias.
+        # TODO Should the existence of the aliases be checked here ?
         if k == n:
             return nameparts
 
+        aliases = self.aliases.index  # All known aliases
+
+        # Iterate over all possible partition of the name parts
         for ps in partition(k, n):
             s = 0
-            allgood = True
             names = []
+            # Whether all names built with that partition are valid
+            allgood = True
 
             for p in ps:
+                # Build the candidate name from the given partition
                 name = " ".join(nameparts[s:s+p])
                 s += p
                 names.append(name)
@@ -123,6 +173,7 @@ class Kamlbot(Bot):
         return None
 
     async def get_ids(self, nameparts, cmd=None, n=1):
+        # TODO Check if that function is used somewhere
         if isinstance(nameparts, str):
             nameparts = [nameparts]
 
@@ -172,17 +223,20 @@ class Kamlbot(Bot):
         return player_ids
 
     def id_from_alias(self, alias):
+        # TODO this needs to be refactored
+        # Seem to create a player if the alias is not found but doesn't check
+        # discord names
         if alias in self.aliases.index:
             return self.aliases.loc[alias]["player_id"]
 
-        self.players = self.players.append(dict(discrod_id=None,
+        self.players = self.players.append(dict(discord_id=None,
                                                 display_name=alias),
                                            ignore_index=True)
 
         player_id = self.players.iloc[-1].name
 
-        alias_data = DataFrame(dict(player_id=player_id),
-                               index=[alias])
+        alias_data = pd.DataFrame(dict(player_id=player_id),
+                                  index=[alias])
         self.aliases = self.aliases.append(alias_data)
         return player_id
 
@@ -195,47 +249,44 @@ class Kamlbot(Bot):
         return indexes[0]
 
     async def load_all(self):
-        """Load everything from files and fetch missing games from the
+        """
+        Load everything from files and fetch missing games from the
         PW matchboard channel.
 
         Erase the current state of the Kamlbot.
         """
         msg_builder.reload()
+        self.ranking_configs = load_ranking_configs()
 
-        logger.info("Fetching game results.")
-
+        # TODO Put this in separate function with logging
         now = datetime.now()
         last_monday_date = now - timedelta(days=now.weekday())
         last_monday = last_monday_date.replace(hour=12, minute=0, second=0,
                                                microsecond=0)
-
-        self.ranking_configs = load_ranking_configs()
         self.ranking_configs["weekly"]["oldest_timestamp_to_consider"] = last_monday.timestamp()
 
         await self.clean_leaderboards()
 
         # TODO put loading from files here
-        self.players = DataFrame(
+        self.players = pd.DataFrame(
             columns=[
                 "discord_id",
                 "display_name"])
 
-        self.aliases = DataFrame(
+        self.aliases = pd.DataFrame(
             columns=[
                 "alias",
                 "player_id"
-            ]
-        )
+            ])
 
         self.aliases.set_index("alias", inplace=True)
 
-        self.games = DataFrame(
+        self.games = pd.DataFrame(
             columns=[
                 "timestamp",
                 "winner_id",
                 "loser_id"
-            ]
-        )
+            ])
 
         for name, config in self.ranking_configs.items():
             chan = discord.utils.get(self.kaml_server.text_channels,
@@ -274,7 +325,7 @@ class Kamlbot(Bot):
             game["loser_id"] = self.id_from_alias(game["loser"])
             new_games.append(game)
 
-            game_data = DataFrame(
+            game_data = pd.DataFrame(
                 dict(
                     timestamp=game["timestamp"],
                     winner_id=game["winner_id"],
@@ -292,7 +343,7 @@ class Kamlbot(Bot):
                 ranking.register_game(**game)
 
         await self.update_display_names()
-        await self.update_leaderboard()
+        await self.update_leaderboards()
 
     # Called for every messages sent in any of the server to which the bot
     # has access.
@@ -315,7 +366,7 @@ class Kamlbot(Bot):
     # multiple times (I have no idea why though)
     async def on_ready(self):
         if self.on_ready_ran:
-            logger.info("Too much on_ready")
+            logger.info("Ignoring on_ready as one already ran.")
             return
         else:
             self.on_ready_ran = True
@@ -374,7 +425,7 @@ class Kamlbot(Bot):
         game["winner_id"] = self.id_from_alias(game["winner"])
         game["loser_id"] = self.id_from_alias(game["loser"])
 
-        game_data = DataFrame(
+        game_data = pd.DataFrame(
             dict(
                 timestamp=game["timestamp"],
                 msg_id=game["msg_id"],
@@ -389,8 +440,8 @@ class Kamlbot(Bot):
         for name, ranking in self.rankings.items():
             ranking.register_game(**game)
 
-        await emit_signal("game_registered", game)
-        await emit_signal("rankings_updated")
+        await self.update_leaderboards()
+        await self.send_game_result(game)
 
     async def send_game_result(self, change):
         """Create a new message in the KAML matchboard."""
@@ -429,11 +480,12 @@ class Kamlbot(Bot):
         await self.kamlboard.send(embed=embed)
 
     async def update_display_names(self):
-        """Update the string used to identify players for all players.
+        """
+        Update the string used to identify players for all players.
 
         Currently fetch the server nickname of every registered players.
         """
-
+        # TODO This should be called everytime an alias is fetched
         registered_players = self.players[self.players["discord_id"].notna()]
 
         for player_id, discord_id in zip(registered_players.index,

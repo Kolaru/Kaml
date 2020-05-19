@@ -136,6 +136,7 @@ async def fetch_game_results(matchboard, after=None):
 
 
 def load_ranking_configs():
+    logger.info("Loading ranking configurations from file.")
     with open("config/ranking_config.json", "r", encoding="utf-8") as file:
         configs = json.load(file)
     return configs
