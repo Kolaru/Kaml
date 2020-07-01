@@ -391,19 +391,24 @@ class Kamlbot(Bot):
         self.kaml_server = self.get_guild(tokens["kaml_server_id"])
 
         # Retrieve special channels
-        self.debug_chan = discord.utils.get(self.kaml_server.text_channels,
-                                            name="debug")
+        # self.debug_chan = discord.utils.get(self.kaml_server.text_channels,
+        #                                     name="debug")
 
-        self.kamlboard = discord.utils.get(self.kaml_server.text_channels,
-                                           name="kamlboard")
+        # self.kamlboard = discord.utils.get(self.kaml_server.text_channels,
+        #                                    name="kamlboard")
 
         for _ in range(100):
             # TODO check that this works
             self.matchboard = self.get_channel(tokens["matchboard_channel_id"])
+            self.debug_chan = discord.utils.get(self.kaml_server.text_channels,
+                                            name="debug")
+            self.kamlboard = discord.utils.get(self.kaml_server.text_channels,
+                                           name="kamlboard")
             await asyncio.sleep(2)
-            if self.matchboard is not None:
+            if (self.matchboard is not None) & (self.debug_chan is not None) & (self.kamlboard is not None):
                 break
-            logger.info("Retrying connection to PW matchboard")
+            # logger.info("Retrying connection to PW matchboard")
+            logger.info("Retrying connection to channels")
 
         await self.change_presence(status=discord.Status.online)
 
