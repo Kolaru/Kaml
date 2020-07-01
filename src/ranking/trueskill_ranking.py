@@ -165,10 +165,10 @@ class TrueSkillRanking(AbstractRanking):
         player_id: int
         """
         # if player_id in self.ranking.index:
-            player_data = self.ranking.loc[player_id]
-            return self.ts_env.Rating(
-                mu=player_data["mu"],
-                sigma=player_data["sigma"])
+        player_data = self.ranking.loc[player_id]
+        return self.ts_env.Rating(
+            mu=player_data["mu"],
+            sigma=player_data["sigma"])
 
         # return self.ts_env.Rating()
 
