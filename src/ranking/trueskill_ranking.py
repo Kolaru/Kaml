@@ -83,17 +83,25 @@ class TrueSkillRanking(AbstractRanking):
         # Init new players with a rating with envrionnement default values
         rating = self.ts_env.Rating()
 
-        player_data = pd.DataFrame(
-            dict(
-                mu=rating.mu,
-                sigma=rating.sigma,
-                score=self.score(rating),
-                n_games=0,
-                rank=np.nan
-            ),
-            index=[player_id]
-        )
-        self.ranking = pd.concat([player_data, self.ranking])
+        # player_data = pd.DataFrame(
+        #     dict(
+        #         mu=rating.mu,
+        #         sigma=rating.sigma,
+        #         score=self.score(rating),
+        #         n_games=0,
+        #         rank=np.nan
+        #     ),
+        #     index=[player_id]
+        # )
+        # self.ranking = pd.concat([player_data, self.ranking])
+
+        self.ranking.loc[player_id] = {
+            "mu": rating.mu, 
+            "sigma": rating.sigma, 
+            "score": self.score(rating), 
+            "n_games": 0, 
+            "rank": np.nan
+        }
 
     def apply_new_states(self, game_id, winner_state, loser_state):
         winner_rating = winner_state["rating"]
