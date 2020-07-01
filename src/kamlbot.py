@@ -321,35 +321,39 @@ class Kamlbot(Bot):
                                                  after=last_msg)
         logger.info(f"{len(fetched_games)} new results fetched from matchboard.")
 
-        new_games = []
+        # new_games = []
 
-        for game in fetched_games:
-            if game["winner"] == "" or game["loser"] == "":
-                continue
+        # for game in fetched_games:
+        #     if game["winner"] == "" or game["loser"] == "":
+        #         continue
 
-            if game["winner"] is None or game["loser"] is None:
-                continue
+        #     if game["winner"] is None or game["loser"] is None:
+        #         continue
 
-            game["winner_id"] = self.id_from_alias(game["winner"])
-            game["loser_id"] = self.id_from_alias(game["loser"])
-            new_games.append(game)
+        self.games = fetched_games.dropna().copy(deep=True)
 
-            game_data = pd.DataFrame(
-                dict(
-                    timestamp=game["timestamp"],
-                    winner_id=game["winner_id"],
-                    loser_id=game["loser_id"]
-                ),
-                index=[game["msg_id"]]
-            )
+        #     game["winner_id"] = self.id_from_alias(game["winner"])
+        #     game["loser_id"] = self.id_from_alias(game["loser"])
+            # new_games.append(game)
 
-            self.games.append(game_data)
+            # self.games.loc[game["msg_id"]] = [
+            #     game["timestamp"],
+            #     game["winner_id"],
+            #     game["loser_id"]
+            # ]
+
+        self.games.loc[:,"winner"] = self.games["winner"].apply(self.id_from_alias)
+        self.games.loc[:,"loser"] = self.games["loser"].apply(self.id_from_alias)
 
         for name, ranking in self.rankings.items():
             logger.info(f"Registering game in ranking {name}")
             # ranking.register_many(new_games) TODO redo that for efficiency ?
-            for game in new_games:
-                ranking.register_game(**game)
+            new_games = self.games[(self.games["timestamp"] >= 
+                                    self.ranking_configs[name]["oldest_timestamp_to_consider"])]
+            # for game in new_games:
+            #     ranking.register_game(**game)
+            for game in new_games.itertuples():
+                print(game)
 
         await self.update_display_names()
         await self.update_leaderboards()
