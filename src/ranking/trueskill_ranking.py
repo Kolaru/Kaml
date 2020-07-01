@@ -122,14 +122,14 @@ class TrueSkillRanking(AbstractRanking):
 
         winner_state = dict(
             id=winner_id,
-            score=self.score(winner_rating),
-            rating=winner_rating
+            score=self.score(wrating),
+            rating=wrating
         )
 
         loser_state = dict(
             id=loser_id,
-            score=self.score(loser_rating),
-            rating=loser_rating
+            score=self.score(lrating),
+            rating=lrating
         )
 
         return winner_state, loser_state
