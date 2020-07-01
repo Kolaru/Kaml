@@ -66,7 +66,7 @@ class Kamlbot(Bot):
         super().__init__(*args, **kwargs)
 
         # Set up the daily check by starting the loop at the next noon
-        now = datetime.now()
+        now = datetime.utcnow()  # use UTC timezone for easier standardization across different servers
         nextnoon_date = now + timedelta(days=1)
         nextnoon = nextnoon_date.replace(hour=12, minute=0, second=0,
                                          microsecond=0)
@@ -79,7 +79,7 @@ class Kamlbot(Bot):
 
         Currently only responsible for restarting the weekly ranking.
         """
-        today = datetime.today()
+        today = datetime.utcnow()
 
         if today.weekday() == 0:  # 0 is for monday
             # Restart weekly ranking
@@ -104,6 +104,15 @@ class Kamlbot(Bot):
             # TODO check the following:
             #   - timestamp of last monday doesn-t seem to be set
             #   - leaderboard messages are not updated
+
+    @tasks.loop(hours=24)  # common factors for each month total days (28, 29, 30, 31) is 1, so check every day
+    async def at_first_month_day(self):
+        """
+        Task running every beginning of each day.
+
+        Checks to see if it's the beginning of a new month and restarts monthly ranking.
+        """
+        today = datetime.utcnow()
 
         if today.day == 1:
             pass  # TODO restart monthly ranking
