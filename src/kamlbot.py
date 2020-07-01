@@ -268,7 +268,7 @@ class Kamlbot(Bot):
         self.ranking_configs = load_ranking_configs()
 
         # TODO Put this in separate function with logging
-        now = datetime.now()
+        now = datetime.utcnow()
         last_monday_date = now - timedelta(days=now.weekday())
         last_monday = last_monday_date.replace(hour=12, minute=0, second=0,
                                                microsecond=0)
@@ -280,13 +280,16 @@ class Kamlbot(Bot):
         self.players = pd.DataFrame(
             columns=[
                 "discord_id",
-                "display_name"])
+                "display_name"
+            ]
+        )
 
         self.aliases = pd.DataFrame(
             columns=[
                 "alias",
                 "player_id"
-            ])
+            ]
+        )
 
         self.aliases.set_index("alias", inplace=True)
 
@@ -295,7 +298,8 @@ class Kamlbot(Bot):
                 "timestamp",
                 "winner_id",
                 "loser_id"
-            ])
+            ]
+        )
 
         for name, config in self.ranking_configs.items():
             chan = discord.utils.get(self.kaml_server.text_channels,
