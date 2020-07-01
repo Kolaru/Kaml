@@ -175,8 +175,8 @@ class AbstractRanking:
         Additional keyword arguments are ignored.
         """
         # Ignore games that are outside the considered period
-        if not (self.oldest_timestamp <= timestamp < self.earliest_timestamp):
-            return None
+        # if not (self.oldest_timestamp <= timestamp < self.earliest_timestamp):
+        #     return None
 
         # Add missing players
         if winner_id not in self.ranking.index:
@@ -197,17 +197,18 @@ class AbstractRanking:
         self.ranking.loc[loser_id, "n_games"] += 1
 
         # When the old score is not None that means this player was already
+        # When the old rank is not NaN, that means this player was already
         # previously ranked. Thus we remove their score from the score list
         # and when we insert it again it will be correctly ranked. 
         winner_old_rank = self.ranking.loc[winner_id, "rank"]
 
-        if winner_old_rank is not None:
+        if not np.isnan(winner_old_rank):
             winner_old_score = self.ranking.loc[winner_id, "score"]
             self.sorted_scores.remove(winner_old_score)
 
         loser_old_rank = self.ranking.loc[loser_id, "rank"]
 
-        if loser_old_rank is not None:
+        if not np.isnan(loser_old_rank):
             loser_old_score = self.ranking.loc[loser_id, "score"]
             self.sorted_scores.remove(loser_old_score)
 
