@@ -236,7 +236,7 @@ class Kamlbot(Bot):
         # Seem to create a player if the alias is not found but doesn't check
         # discord names
         if alias in self.aliases.index:
-            return self.aliases.loc[alias]["player_id"]
+            return self.aliases.loc[alias, "player_id"]
 
         self.players = self.players.append(dict(discord_id=None,
                                                 display_name=alias),
@@ -256,6 +256,53 @@ class Kamlbot(Bot):
             return None
 
         return indexes[0]
+
+    def load_dataframes(self):
+        import pathlib
+        if pathlib.Path("data/games.csv").exists():
+            players = pd.DataFrame(
+                columns=[
+                    "discord_id",
+                    "display_name"
+                ]
+            )
+
+            aliases = pd.DataFrame(
+                columns=[
+                    "alias",
+                    "player_id"
+                ]
+            )
+            aliases.set_index("alias", inplace=True)
+
+            games = pd.read_csv("data/games.csv", index_col="msg_id")
+        else:
+            players = pd.DataFrame(
+                columns=[
+                    "discord_id",
+                    "display_name"
+                ]
+            )
+
+            aliases = pd.DataFrame(
+                columns=[
+                    "alias",
+                    "player_id"
+                ]
+            )
+            aliases.set_index("alias", inplace=True)
+
+            games = pd.DataFrame(
+                columns=[
+                    "msg_id",
+                    "timestamp",
+                    "winner_id",
+                    "loser_id"
+                ]
+            )
+            games.set_index("msg_id", inplace=True)
+
+        return players, aliases, games
 
     async def load_all(self):
         """
@@ -277,29 +324,7 @@ class Kamlbot(Bot):
         await self.clean_leaderboards()
 
         # TODO put loading from files here
-        self.players = pd.DataFrame(
-            columns=[
-                "discord_id",
-                "display_name"
-            ]
-        )
-
-        self.aliases = pd.DataFrame(
-            columns=[
-                "alias",
-                "player_id"
-            ]
-        )
-
-        self.aliases.set_index("alias", inplace=True)
-
-        self.games = pd.DataFrame(
-            columns=[
-                "timestamp",
-                "winner_id",
-                "loser_id"
-            ]
-        )
+        self.players, self.aliases, self.games = self.load_dataframes()
 
         for name, config in self.ranking_configs.items():
             chan = discord.utils.get(self.kaml_server.text_channels,
@@ -316,9 +341,9 @@ class Kamlbot(Bot):
                                     **config)
 
         try:
-            msg_data = self.games.loc[-1]
-            last_msg = self.matchboard.fetch_message(msg_data.name)
-        except KeyError:
+            msg_data = self.games.iloc[-1]
+            last_msg = await self.matchboard.fetch_message(msg_data.name)
+        except IndexError:
             last_msg = None
 
         fetched_games = await fetch_game_results(self.matchboard,
@@ -334,7 +359,14 @@ class Kamlbot(Bot):
         #     if game["winner"] is None or game["loser"] is None:
         #         continue
 
-        self.games = fetched_games.dropna().copy(deep=True)
+        self.games = pd.concat(
+            [
+                self.games, 
+                fetched_games.dropna().copy(deep=True)
+            ]
+        )
+
+        self.games.to_csv("data/games.csv")
 
         #     game["winner_id"] = self.id_from_alias(game["winner"])
         #     game["loser_id"] = self.id_from_alias(game["loser"])
@@ -346,8 +378,7 @@ class Kamlbot(Bot):
             #     game["loser_id"]
             # ]
 
-        self.games.loc[:,"winner"] = self.games["winner"].apply(self.id_from_alias)
-        self.games.loc[:,"loser"] = self.games["loser"].apply(self.id_from_alias)
+        self.games.loc[:,["winner","loser"]] = self.games[["winner", "loser"]].applymap(self.id_from_alias)
 
         for name, ranking in self.rankings.items():
             logger.info(f"Registering game in ranking {name}")
@@ -422,10 +453,10 @@ class Kamlbot(Bot):
 
         else:
             chan = self.debug_chan
-            await chan.send("The Kamlbot is logged in.")
+            # await chan.send("The Kamlbot is logged in.")
 
         async with chan.typing():
-            logger.info(f"Kamlbot has logged in.")
+            # logger.info(f"Kamlbot has logged in.")
             start_time = time.time()
 
             await self.load_all()

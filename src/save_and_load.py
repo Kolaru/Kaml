@@ -1,5 +1,6 @@
 import json
 import re
+
 import pandas as pd
 
 from collections import OrderedDict
@@ -135,15 +136,19 @@ def assign_regex_pattern(s):
     regex_pat = s.copy()
     regex_pat[s.str.contains('has won a match!', regex=False)] = 2
     regex_pat[s.str.contains('has lost a match.', regex=False)] = 3
-    regex_pat[regex_pat.str.startswith(':crown:', na=False)] = 0
+    # I was doing some tests below or something.
+    try:
+        regex_pat[s.str.startswith(':crown:', na=False)] = 0
+    except:
+        pass
     regex_pat[s.str.contains('vs :crown:', regex=False)] = 1
     regex_pat[~regex_pat.isin([0,1,2,3])] = -1  # does not fit any pattern
     regex_pat = regex_pat.convert_dtypes()
     return regex_pat
 
 def parse_matchboard_msgs(df):
-    """Receives a dataframe of games and expands 
-    description column into winner and loser fields
+    """Receives a dataframe of games and filters by rank
+    and expands description column into winner and loser fields
 
     Args:
         df (DataFrame): Pandas Dataframe containing a 
@@ -161,7 +166,7 @@ def parse_matchboard_msgs(df):
                                  df[df.regex_pattern == 3]['description'].str.extract(HALF_LOSS_PATTERN).rename({0:1,1:0},axis=1)])
     winner_loser_df.index.name = 'msg_id'
     df = df.merge(winner_loser_df, how='left', on='msg_id').rename({0:'winner',1:'loser'}, axis=1)
-    df.to_csv('data/test.csv')
+    # df.to_csv('data/test.csv')  # something's up with the code that makes the output inaccurate or something...
     
     return df
 
@@ -206,8 +211,7 @@ def convert_msgs_to_df(history):
 ## File reading/writing
 
 async def fetch_game_results(matchboard, after=None):
-    """Fetches games from local directory if previous record exists
-    and from PW's discord matchboard channel
+    """Fetches games from PW's discord matchboard channel
 
     Args:
         matchboard (TextChannel object): The matchboard channel
@@ -217,13 +221,17 @@ async def fetch_game_results(matchboard, after=None):
     Returns:
         DataFrame: Consists of all the games fetched from matchboard after data wrangling.
     """
-    game_results = []
+    # game_results = []
     history = await matchboard.history(oldest_first=True,
                                  after=after,
-                                 limit=3000).flatten()  # TODO Put back None once testing is done
+                                 limit=3000
+                                 ).flatten()  # TODO Put back None once testing is done
 
-    games_df = convert_msgs_to_df(history)
-    games_df = parse_matchboard_msgs(games_df)
+    games_df = convert_msgs_to_df(history)  # map discordmessage objects to columns
+    games_df = parse_matchboard_msgs(games_df)  # filters to only ranked games and extracts names
+    
+    ### was trying to diagnose some problem with the dataframes, do test and take a look
+    # test_df = pd.read_csv("data/games.csv", index_col="msg_id")
 
     # for msg in history:
     #     for msg.embeds[0]
