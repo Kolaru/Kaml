@@ -1,4 +1,4 @@
-certifi==2019.6.16
+certifi==2022.12.7
 discord.py # Was named discord before, retrieves latest version as discord might update its API
 gitpython==3.0.8
 matplotlib==3.1.3
